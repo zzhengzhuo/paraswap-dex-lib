@@ -4,7 +4,12 @@ dotenv.config();
 
 import { Interface } from '@ethersproject/abi';
 import { DummyDexHelper } from '../../dex-helper/index';
-import { Network, SwapSide } from '../../constants';
+import {
+  Network,
+  NO_USD_LIQUIDITY,
+  SwapSide,
+  UNLIMITED_USD_LIQUIDITY,
+} from '../../constants';
 import { BI_POWS } from '../../bigint-constants';
 import {
   checkPoolPrices,
@@ -222,8 +227,8 @@ describe('WrappedM<>UsualM', function () {
       );
 
       // swap is available only from WrappedM to UsualM
-      expect(poolLiquidityA[0].tradeDirection).toBe(true);
-      expect(poolLiquidityB[0].tradeDirection).toBe(false);
+      expect(poolLiquidityA[0].liquidityUSD).toBe(UNLIMITED_USD_LIQUIDITY);
+      expect(poolLiquidityB[0].liquidityUSD).toBe(NO_USD_LIQUIDITY);
 
       checkPoolsLiquidity(poolLiquidityA, tokenA.address, dexKey);
     });
