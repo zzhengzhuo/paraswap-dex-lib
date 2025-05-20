@@ -1,25 +1,25 @@
 import { Address } from '../../types';
 import { BigNumber } from 'ethers';
 
+// Represents the combined state relevant for the AaveV3 PT Rollover.
+// This state is expected to be maintained by an event subscriber (e.g., AaveV3PtRollOverEventPool)
+// and used for price calculations.
+
 export type PoolState = {
-  // TODO: poolState is the state of event
-  // subscriber. This should be the minimum
-  // set of parameters required to compute
-  // pool prices. Complete me!
+  price: bigint;
 };
 
 export type AaveV3PtRollOverData = {
-  // TODO: AaveV3PtRollOverData is the dex data that is
-  // returned by the API that can be used for
-  // tx building. The data structure should be minimal.
-  // Complete me!
   exchange: Address;
 };
 
 export type DexParams = {
-  // TODO: DexParams is set of parameters the can
-  // be used to initiate a DEX fork.
-  // Complete me!
+  pendleRouterAddress: Address;
+  oldPtAddress: Address;
+  oldMarketAddress: Address;
+  newMarketAddress: Address;
+  sUSDeTokenAddress: Address;
+  pendleChainlinkOracleAddress: Address;
 };
 
 // --- Pendle Router Specific Types ---
