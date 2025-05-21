@@ -1203,9 +1203,15 @@ export class UniswapV3
 
     const _tokenAddress = tokenAddress.toLowerCase();
 
+    let liquidityField = 'totalValueLockedUSD';
+
+    if (this.dexKey === 'AlienBaseV3') {
+      liquidityField = 'liquidity';
+    }
+
     const res = await this._querySubgraph(
       `query ($token: Bytes!, $count: Int) {
-                pools0: pools(first: $count, orderBy: totalValueLockedUSD, orderDirection: desc, where: {token0: $token}) {
+                pools0: pools(first: $count, orderBy: ${liquidityField}, orderDirection: desc, where: {token0: $token}) {
                 id
                 feeTier
                 token0 {
@@ -1216,9 +1222,9 @@ export class UniswapV3
                   id
                   decimals
                 }
-                totalValueLockedUSD
+                ${liquidityField}
               }
-              pools1: pools(first: $count, orderBy: totalValueLockedUSD, orderDirection: desc, where: {token1: $token}) {
+              pools1: pools(first: $count, orderBy: ${liquidityField}, orderDirection: desc, where: {token1: $token}) {
                 id
                 feeTier
                 token0 {
@@ -1229,7 +1235,7 @@ export class UniswapV3
                   id
                   decimals
                 }
-                totalValueLockedUSD
+                ${liquidityField}
               }
             }`,
       {
@@ -1260,7 +1266,7 @@ export class UniswapV3
           decimals: parseInt(pool.token1.decimals),
         },
       ],
-      liquidityUSD: parseFloat(pool.totalValueLockedUSD),
+      liquidityUSD: parseFloat(pool.totalValueLockedUSD ?? 0),
     }));
 
     const pools1: PoolLiquidity[] = _.map(res.pools1, pool => ({
@@ -1278,7 +1284,7 @@ export class UniswapV3
           decimals: parseInt(pool.token0.decimals),
         },
       ],
-      liquidityUSD: parseFloat(pool.totalValueLockedUSD),
+      liquidityUSD: parseFloat(pool.totalValueLockedUSD ?? 0),
     }));
 
     const allPools = pools0.concat(pools1);
