@@ -68,11 +68,8 @@ function testForNetwork(
   const holders = Holders[network];
   const nativeTokenSymbol = NativeTokenSymbols[network];
 
-  // TODO: Add any direct swap contractMethod name if it exists
   const sideToContractMethods = new Map([
     [SwapSide.SELL, [ContractMethod.swapExactAmountIn]],
-    // TODO: If buy is not supported remove the buy contract methods
-    [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
   ]);
 
   describe(`${network}`, () => {
@@ -133,11 +130,11 @@ describe('AaveV3PtRollOver E2E', () => {
     const network = Network.MAINNET;
 
     // TODO: Modify the tokenASymbol, tokenBSymbol, tokenAAmount;
-    const tokenASymbol: string = 'tokenASymbol';
-    const tokenBSymbol: string = 'tokenBSymbol';
+    const tokenASymbol: string = 'PT-USDe-29May';
+    const tokenBSymbol: string = 'PT-USDe-31Jul';
 
-    const tokenAAmount: string = 'tokenAAmount';
-    const tokenBAmount: string = 'tokenBAmount';
+    const tokenAAmount: string = '1000000000000000000';
+    const tokenBAmount: string = '1000000000000000000';
     const nativeTokenAmount = '1000000000000000000';
 
     testForNetwork(
@@ -149,7 +146,5 @@ describe('AaveV3PtRollOver E2E', () => {
       tokenBAmount,
       nativeTokenAmount,
     );
-
-    // TODO: Add any additional test cases required to test AaveV3PtRollOver
   });
 });

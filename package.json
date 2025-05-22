@@ -71,6 +71,8 @@
     "lodash": "4.17.21",
     "log4js": "6.6.1",
     "node-cache": "^5.1.2",
+    "pendle-sdk": "https://github.com/pendle-finance/pendle-examples-public",
+    "penlde-sdk": "https://github.com/pendle-finance/pendle-examples-public",
     "protobufjs": "^7.4.0",
     "ts-essentials": "9.1.2",
     "uuid": "^9.0.0",
