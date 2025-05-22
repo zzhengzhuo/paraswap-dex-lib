@@ -19,13 +19,13 @@ export class PoolsHelper {
     tokenAddress: Address,
     dexKey: string,
     count: number,
-  ): Promise<PoolLiquidity[]> {
+  ): Promise<PoolLiquidity[] | string> {
     try {
       const dex = this.dexAdapterService.getDexByKey(dexKey);
       return await dex.getTopPoolsForToken(tokenAddress, count);
     } catch (e) {
       this.logger.error(`getTopPools_${dexKey}`, e);
-      return [];
+      return dexKey;
     }
   }
 
@@ -48,7 +48,7 @@ export class PoolsHelper {
     tokenAddress: Address,
     dexKeys: string[],
     countPerDex: number,
-  ): Promise<PoolLiquidity[]> {
+  ): Promise<(PoolLiquidity | string)[]> {
     return (
       await Promise.all(
         dexKeys.map(key => this.getTopPoolsDex(tokenAddress, key, countPerDex)),
