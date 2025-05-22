@@ -81,6 +81,7 @@ export const SolidlyConfig: DexConfigMap<DexParams> = {
   },
   Aerodrome: {
     [Network.BASE]: {
+      // RPC pool tracker is used, as it inherits from VelodromeV2
       factoryAddress: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
       router: '0xDCf4EE5B700e2a5Fec458e06B763A4a3E3004494',
       subgraphURL: '7uEwiKmfbRQqV8Ec9nvdKrMFVFQv5qaM271gdBvHtywj',

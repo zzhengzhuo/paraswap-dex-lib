@@ -420,7 +420,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     );
 
     if (poolsToUpdate.length > 0) {
-      await this.updatePoolsReserves(pools);
+      await this.updatePoolsReserves(poolsToUpdate);
     }
 
     pools = pools
