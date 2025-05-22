@@ -306,6 +306,8 @@ export class GMX extends SimpleExchange implements IDex<GMXData> {
       }),
     );
 
+    if (!Object.keys(maxAmounts).length) return [];
+
     const usdMaxAmountIn = await this.dexHelper.getUsdTokenAmounts(
       // maxAmounts are in the asked token, so replace token address
       Object.entries(maxAmounts).map(([_, amount]) => [tokenAddress, amount]),
