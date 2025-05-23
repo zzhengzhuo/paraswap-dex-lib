@@ -19,13 +19,13 @@ type CachedPool = {
 
 type Pool = {
   address: Address;
-  token0: Token;
-  token1: Token;
-  reserves: {
-    updatedAt: null | number;
-    reserve0: bigint;
-    reserve1: bigint;
-  };
+  token0Address: Address;
+  token0Decimals: number;
+  token1Address: Address;
+  token1Decimals: number;
+  reserve0: bigint;
+  reserve1: bigint;
+  updatedAt: number | null;
 };
 
 const UPDATE_POOL_INTERVAL = 10 * 60 * 1000; // 10 minutes
@@ -223,17 +223,20 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       const pools = await this.dexHelper.cache.hmget(this.cacheKey, keys);
 
       pools.forEach((pool, idx) => {
-        const index = batchStart + idx;
-        this.pools[index] = pool
-          ? {
-              ...JSON.parse(pool),
-              reserves: {
-                reserve0: 0n,
-                reserve1: 0n,
-                updatedAt: null,
-              },
-            }
-          : null;
+        if (pool) {
+          const index = batchStart + idx;
+          const parsedPool = JSON.parse(pool) as CachedPool;
+          this.pools[index] = {
+            address: parsedPool.address,
+            token0Address: parsedPool.token0.address,
+            token0Decimals: parsedPool.token0.decimals,
+            token1Address: parsedPool.token1.address,
+            token1Decimals: parsedPool.token1.decimals,
+            reserve0: 0n,
+            reserve1: 0n,
+            updatedAt: null,
+          };
+        }
       });
     }
   }
@@ -389,12 +392,9 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     for (let i = 0; i < pools.length; i++) {
       const [reserve0, reserve1] = results[i].returnData as bigint[];
       const pool = pools[i];
-
-      pool.reserves = {
-        updatedAt: Date.now(),
-        reserve0: reserve0,
-        reserve1: reserve1,
-      };
+      pool.reserve0 = reserve0;
+      pool.reserve1 = reserve1;
+      pool.updatedAt = Date.now();
     }
   }
 
@@ -405,7 +405,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     const token = tokenAddress.toLowerCase();
 
     let pools = Object.values(this.pools).filter(
-      pool => pool.token0.address === token || pool.token1.address === token,
+      pool => pool.token0Address === token || pool.token1Address === token,
     );
 
     if (pools.length === 0) {
@@ -414,9 +414,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
     const now = Date.now();
     const poolsToUpdate = pools.filter(
-      pool =>
-        !pool.reserves.updatedAt ||
-        now - pool.reserves.updatedAt > UPDATE_POOL_INTERVAL,
+      pool => !pool.updatedAt || now - pool.updatedAt > UPDATE_POOL_INTERVAL,
     );
 
     if (poolsToUpdate.length > 0) {
@@ -425,25 +423,19 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
     pools = pools
       .sort((a, b) => {
-        const aReserve =
-          token === a.token0.address
-            ? a.reserves.reserve0
-            : a.reserves.reserve1;
+        const aReserve = token === a.token0Address ? a.reserve0 : a.reserve1;
 
-        const bReserve =
-          token === b.token0.address
-            ? b.reserves.reserve0
-            : b.reserves.reserve1;
+        const bReserve = token === b.token0Address ? b.reserve0 : b.reserve1;
         return Number(bReserve - aReserve);
       })
       .slice(0, limit);
 
     const tokensAmounts = pools
       .map(pool => {
-        const token0 = pool.token0.address;
-        const token1 = pool.token1.address;
-        const reserve0 = pool.reserves.reserve0;
-        const reserve1 = pool.reserves.reserve1;
+        const token0 = pool.token0Address;
+        const token1 = pool.token1Address;
+        const reserve0 = pool.reserve0;
+        const reserve1 = pool.reserve1;
 
         return [
           [token0, reserve0],
@@ -458,7 +450,15 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
     const poolsWithLiquidity: PoolLiquidity[] = pools.map((pool, i) => {
       const connectorToken =
-        token === pool.token0.address ? pool.token1 : pool.token0;
+        token === pool.token0Address
+          ? {
+              address: pool.token1Address,
+              decimals: pool.token1Decimals,
+            }
+          : {
+              address: pool.token0Address,
+              decimals: pool.token0Decimals,
+            };
 
       let token0ReserveUSD = usdTokenAmounts[i * 2];
       let token1ReserveUSD = usdTokenAmounts[i * 2 + 1];
