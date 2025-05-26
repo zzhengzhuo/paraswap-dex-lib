@@ -18,8 +18,11 @@ import { AaveV3PtRollOverData, DexParams } from './types';
 import { SimpleExchange } from '../simple-exchange';
 import { AaveV3PtRollOverConfig } from './config';
 import PendleRouterABI from '../../abi/PendleRouter.json';
+import PendleOracleABI from '../../abi/PendleOracle.json';
 
 import { ethers, Contract, BigNumber, Signer } from 'ethers';
+
+// import { callSDK, TransferLiquidityData } from '@pendle-sdk';
 
 export class AaveV3PtRollOver
   extends SimpleExchange
@@ -58,6 +61,15 @@ export class AaveV3PtRollOver
     return null;
   }
 
+  async initializePricing(blockNumber: number): Promise<void> {
+    const oracle = new ethers.Contract(
+      this.config.oracleAddress,
+      PendleOracleABI,
+      this.dexHelper.provider,
+    );
+    return await oracle.getPtToAssetRate(this.config.oldMarketAddress, 1);
+  }
+
   async getPoolIdentifiers(
     srcToken: Token,
     destToken: Token,
@@ -73,8 +85,8 @@ export class AaveV3PtRollOver
     }
 
     if (
-      srcTokenAddress === this.config.oldPtAddress.toLowerCase() &&
-      destTokenAddress === this.config.newPtAddress.toLowerCase()
+      srcTokenAddress === this.config.oldPtAddress.address.toLowerCase() &&
+      destTokenAddress === this.config.newPtAddress.address.toLowerCase()
     ) {
       {
         return [
@@ -107,8 +119,8 @@ export class AaveV3PtRollOver
     }
 
     const isValidSwap =
-      srcTokenAddress === this.config.oldPtAddress.toLowerCase() &&
-      destTokenAddress === this.config.newPtAddress.toLowerCase();
+      srcTokenAddress === this.config.oldPtAddress.address.toLowerCase() &&
+      destTokenAddress === this.config.newPtAddress.address.toLowerCase();
 
     if (!isValidSwap) {
       return null;
@@ -146,7 +158,7 @@ export class AaveV3PtRollOver
     const payload = '0x';
 
     return {
-      targetExchange: this.config.pendleRouterAddress, // Pendle Router Address
+      targetExchange: this.config.oldPtAddress.address,
       payload,
       networkFee: '0',
     };
@@ -157,9 +169,11 @@ export class AaveV3PtRollOver
     limit: number,
   ): Promise<PoolLiquidity[]> {
     const isOldPt =
-      tokenAddress.toLowerCase() === this.config.oldPtAddress.toLowerCase();
+      tokenAddress.toLowerCase() ===
+      this.config.oldPtAddress.address.toLowerCase();
     const isNewPt =
-      tokenAddress.toLowerCase() === this.config.newPtAddress.toLowerCase();
+      tokenAddress.toLowerCase() ===
+      this.config.newPtAddress.address.toLowerCase();
 
     if (!isOldPt && !isNewPt) {
       return [];
@@ -172,8 +186,8 @@ export class AaveV3PtRollOver
         connectorTokens: [
           {
             address: isOldPt
-              ? this.config.oldPtAddress
-              : this.config.newPtAddress,
+              ? this.config.oldPtAddress.address
+              : this.config.newPtAddress.address,
             decimals: 18,
           },
         ],
@@ -181,6 +195,8 @@ export class AaveV3PtRollOver
       },
     ];
   }
+
+  public async updatePoolState(): Promise<void> {}
 
   async getDexParam(
     srcToken: Address,
@@ -198,27 +214,35 @@ export class AaveV3PtRollOver
     const destTokenAddress = destToken.toLowerCase();
 
     const isValidSwap =
-      srcTokenAddress === this.config.oldPtAddress.toLowerCase() &&
-      destTokenAddress === this.config.newPtAddress.toLowerCase();
+      srcTokenAddress === this.config.oldPtAddress.address.toLowerCase() &&
+      destTokenAddress === this.config.newPtAddress.address.toLowerCase();
 
     if (!isValidSwap) {
       this.logger.error('Invalid swap');
     }
 
-    const amountIn = srcAmount;
-    const amountOut = destAmount;
+    const CHAIN_ID = 1;
 
-    const calldataGasCost = this.getCalldataGasCost();
+    // const res = await callSDK<TransferLiquidityData>(`/v1/sdk/${CHAIN_ID}/markets/${this.config.oldMarketAddress}/transfer-liquidity`, {
+    //     receiver: recipient,
+    //     slippage: 0.01,
+    //     dstMarket: this.config.newMarketAddress,
+    //     lpAmount: '0',
+    //     ptAmount: srcAmount,
+    //     ytAmount: '0',
+    // });
 
-    return {
-      needWrapNative: false,
-      dexFuncHasRecipient: false,
-      exchangeData: this.pendleRouter.interface.encodeFunctionData(
-        'swapExactTokensForTokens',
-        [amountIn, amountOut, recipient],
-      ),
-      targetExchange: this.config.pendleRouterAddress,
-      returnAmountPos: undefined,
-    };
+    // return {
+    //     needWrapNative: false,
+    //     dexFuncHasRecipient: false,
+    //     exchangeData: this.pendleRouter.interface.encodeFunctionData(
+    //         'callAndReflect',
+    //         [res.contractParams[0], res.contractParams[1], res.contractParams[2], res.contractParams],
+    //     ),
+    //     targetExchange: this.config.pendleRouterAddress,
+    //     returnAmountPos: undefined,
+    // };
+
+    throw new Error('LOGIC ERROR');
   }
 }
