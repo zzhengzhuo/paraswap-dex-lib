@@ -749,15 +749,16 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         let withdrawCallData = '0x';
 
         const customWethAddress = curExchangeParam.wethAddress;
-        const needUnwrap = isLastSwap
-          ? !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams)
-          : // check if current exchange is the last with needWrapNative
-            this.isLastExchangeWithNeedWrapNative(
-              priceRoute,
-              swap,
-              exchangeParams,
-              exchangeParamIndex,
-            );
+        // check if current exchange is the last with needWrapNative
+        const needUnwrap =
+          this.isLastExchangeWithNeedWrapNative(
+            priceRoute,
+            swap,
+            exchangeParams,
+            exchangeParamIndex,
+          ) &&
+          (!isLastSwap ||
+            !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams));
 
         if (customWethAddress || needUnwrap) {
           withdrawCallData = this.buildUnwrapEthCallData(
