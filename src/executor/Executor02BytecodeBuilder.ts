@@ -210,13 +210,15 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     const anyDexOnSwapDoesntNeedWrapNative =
       this.anyDexOnSwapDoesntNeedWrapNative(priceRoute, swap, exchangeParams);
 
-    const isLastExchangeWithNeedWrapNative =
-      this.isLastExchangeWithNeedWrapNative(
-        priceRoute,
-        swap,
-        exchangeParams,
-        exchangeParamIndex,
-      );
+    const isLastExchangeWithNeedWrapNative = isLastSwap
+      ? !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams)
+      : // check if current exchange is the last with needWrapNative
+        this.isLastExchangeWithNeedWrapNative(
+          priceRoute,
+          swap,
+          exchangeParams,
+          exchangeParamIndex,
+        );
 
     //  for the first part, basically replicates the logic from `unwrap after last swap` in buildSingleSwapExchangeCallData
     const needCheckSrcTokenBalanceOf =
@@ -747,14 +749,15 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         let withdrawCallData = '0x';
 
         const customWethAddress = curExchangeParam.wethAddress;
-        const needUnwrap =
-          // check if current exchange is the last with needWrapNative
-          this.isLastExchangeWithNeedWrapNative(
-            priceRoute,
-            swap,
-            exchangeParams,
-            exchangeParamIndex,
-          );
+        const needUnwrap = isLastSwap
+          ? !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams)
+          : // check if current exchange is the last with needWrapNative
+            this.isLastExchangeWithNeedWrapNative(
+              priceRoute,
+              swap,
+              exchangeParams,
+              exchangeParamIndex,
+            );
 
         if (customWethAddress || needUnwrap) {
           withdrawCallData = this.buildUnwrapEthCallData(
