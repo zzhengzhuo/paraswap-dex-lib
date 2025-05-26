@@ -86,7 +86,11 @@ export class GenericSwapTransactionBuilder {
     destAmountWeth: bigint,
     side: SwapSide,
   ) {
-    if (srcAmountWeth === 0n && destAmountWeth === 0n) return;
+    if (
+      (srcAmountWeth === 0n && destAmountWeth === 0n) ||
+      srcAmountWeth === destAmountWeth
+    )
+      return;
 
     return (
       this.dexAdapterService.getTxBuilderDexByKey(
