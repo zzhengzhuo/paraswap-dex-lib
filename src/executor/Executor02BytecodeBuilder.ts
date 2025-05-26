@@ -207,8 +207,23 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     const needSendEth = isEthSrc && !needWrapNative;
     const needCheckEthBalance = isEthDest && !needWrapNative;
 
+    const anyDexOnSwapDoesntNeedWrapNative =
+      this.anyDexOnSwapDoesntNeedWrapNative(priceRoute, swap, exchangeParams);
+
+    const isLastExchangeWithNeedWrapNative =
+      this.isLastExchangeWithNeedWrapNative(
+        priceRoute,
+        swap,
+        exchangeParams,
+        exchangeParamIndex,
+      );
+
+    //  for the first part, basically replicates the logic from `unwrap after last swap` in buildSingleSwapExchangeCallData
     const needCheckSrcTokenBalanceOf =
-      (needUnwrap && !applyVerticalBranching) ||
+      (needUnwrap &&
+        (!applyVerticalBranching ||
+          (applyVerticalBranching && anyDexOnSwapDoesntNeedWrapNative)) &&
+        (isLastExchangeWithNeedWrapNative || exchangeParam.wethAddress)) ||
       (isHorizontalSequence && !applyVerticalBranching && !isLastSwap);
 
     let dexFlag: Flag;
@@ -286,8 +301,24 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
       exchangeParams,
     );
 
+    const needUnwrap =
+      // check if current exchange is the last with needWrapNative
+      this.isLastExchangeWithNeedWrapNative(
+        priceRoute,
+        swap,
+        exchangeParams,
+        exchangeParamIndex,
+      ) || exchangeParam.wethAddress;
+
+    const needUnwrapAfterLastSwapInRoute =
+      needUnwrap &&
+      isETHAddress(swap.destToken) &&
+      this.anyDexOnSwapDoesntNeedWrapNative(priceRoute, swap, exchangeParams);
+
     const returnAmountPos =
-      exchangeParam.returnAmountPos !== undefined && !routeNeedsRootUnwrapEth // prevent returnAmoutPos optimisation if route needs root unwrap eth
+      exchangeParam.returnAmountPos !== undefined &&
+      !routeNeedsRootUnwrapEth &&
+      !needUnwrapAfterLastSwapInRoute // prevent returnAmoutPos optimisation if route needs root unwrap eth
         ? exchangeParam.returnAmountPos
         : DEFAULT_RETURN_AMOUNT_POS;
 
@@ -700,6 +731,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         ]);
       }
 
+      // unwrap after last swap
       if (
         maybeWethCallData &&
         maybeWethCallData.withdraw &&
@@ -717,11 +749,12 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         const customWethAddress = curExchangeParam.wethAddress;
         const needUnwrap =
           // check if current exchange is the last with needWrapNative
-          exchangeParams.reduceRight(
-            (acc, exchangeParam, index) =>
-              exchangeParam.needWrapNative === true && acc === -1 ? index : acc,
-            -1,
-          ) === exchangeParamIndex;
+          this.isLastExchangeWithNeedWrapNative(
+            priceRoute,
+            swap,
+            exchangeParams,
+            exchangeParamIndex,
+          );
 
         if (customWethAddress || needUnwrap) {
           withdrawCallData = this.buildUnwrapEthCallData(
@@ -907,6 +940,44 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     });
 
     return res.includes(true);
+  }
+
+  private isLastExchangeWithNeedWrapNative(
+    priceRoute: OptimalRate,
+    swap: OptimalSwap,
+    exchangeParams: DexExchangeBuildParam[],
+    exchangeParamIndex: number,
+  ): boolean {
+    const currentSwapExchangeParamsIndexes: number[] = [];
+
+    swap.swapExchanges.forEach(curSe => {
+      let index = 0;
+      let swapExchangeIndex = 0;
+      priceRoute.bestRoute.forEach(route => {
+        route.swaps.forEach(curSwap => {
+          return curSwap.swapExchanges.forEach(async se => {
+            if (Object.is(se, curSe)) {
+              index = swapExchangeIndex;
+            }
+            swapExchangeIndex++;
+          });
+        });
+      });
+
+      currentSwapExchangeParamsIndexes.push(index);
+    });
+
+    return (
+      exchangeParams.reduceRight(
+        (acc, exchangeParam, index) =>
+          exchangeParam.needWrapNative === true &&
+          currentSwapExchangeParamsIndexes.includes(index) &&
+          acc === -1
+            ? index
+            : acc,
+        -1,
+      ) === exchangeParamIndex
+    );
   }
 
   private getSwapExchangesWhichNeedWrapNative(
