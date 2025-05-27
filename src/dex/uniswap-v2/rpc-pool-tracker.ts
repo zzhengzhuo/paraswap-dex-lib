@@ -9,7 +9,7 @@ import {
 import { MultiCallParams, MultiResult } from '../../lib/multi-wrapper';
 import { Address, PoolLiquidity, Token } from '../../types';
 import { UniswapV2 } from './uniswap-v2';
-import { BytesLike } from 'ethers';
+import { BytesLike, ethers } from 'ethers';
 
 type CachedPool = {
   address: Address;
@@ -232,9 +232,21 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
             token0Decimals: parsedPool.token0.decimals,
             token1Address: parsedPool.token1.address,
             token1Decimals: parsedPool.token1.decimals,
+            // reserve0: ethers.utils
+            //   .parseUnits(
+            //     Math.floor(Math.random() * 1000).toString(),
+            //     parsedPool.token0.decimals,
+            //   )
+            //   .toBigInt(),
+            // reserve1: ethers.utils
+            //   .parseUnits(
+            //     Math.floor(Math.random() * 1000).toString(),
+            //     parsedPool.token1.decimals,
+            //   )
+            //   .toBigInt(),
             reserve0: 0n,
             reserve1: 0n,
-            updatedAt: null,
+            updatedAt: Date.now(),
           };
         }
       });
