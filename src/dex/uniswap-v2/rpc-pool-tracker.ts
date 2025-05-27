@@ -249,6 +249,10 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
             updatedAt: null,
             // updatedAt: Date.now() + 1000 * 60 * 60,
           };
+        } else {
+          this.logger.warn(
+            `Pool with index ${batchStart + idx} not found in cache`,
+          );
         }
       });
     }
