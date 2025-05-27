@@ -235,13 +235,13 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
             reserve0: ethers.utils
               .parseUnits(
                 Math.floor(Math.random() * 1000).toString(),
-                parsedPool.token0.decimals,
+                Math.min(parsedPool.token0.decimals, 18),
               )
               .toBigInt(),
             reserve1: ethers.utils
               .parseUnits(
                 Math.floor(Math.random() * 1000).toString(),
-                parsedPool.token1.decimals,
+                Math.min(parsedPool.token1.decimals, 18),
               )
               .toBigInt(),
             // reserve0: 0n,
