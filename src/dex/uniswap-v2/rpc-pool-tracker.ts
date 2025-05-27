@@ -232,21 +232,22 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
             token0Decimals: parsedPool.token0.decimals,
             token1Address: parsedPool.token1.address,
             token1Decimals: parsedPool.token1.decimals,
-            reserve0: ethers.utils
-              .parseUnits(
-                Math.floor(Math.random() * 1000).toString(),
-                Math.min(parsedPool.token0.decimals, 18),
-              )
-              .toBigInt(),
-            reserve1: ethers.utils
-              .parseUnits(
-                Math.floor(Math.random() * 1000).toString(),
-                Math.min(parsedPool.token1.decimals, 18),
-              )
-              .toBigInt(),
-            // reserve0: 0n,
-            // reserve1: 0n,
-            updatedAt: Date.now() + 1000 * 60 * 60,
+            // reserve0: ethers.utils
+            //   .parseUnits(
+            //     Math.floor(Math.random() * 1000).toString(),
+            //     Math.min(parsedPool.token0.decimals, 18),
+            //   )
+            //   .toBigInt(),
+            // reserve1: ethers.utils
+            //   .parseUnits(
+            //     Math.floor(Math.random() * 1000).toString(),
+            //     Math.min(parsedPool.token1.decimals, 18),
+            //   )
+            //   .toBigInt(),
+            reserve0: 0n,
+            reserve1: 0n,
+            updatedAt: null,
+            // updatedAt: Date.now() + 1000 * 60 * 60,
           };
         }
       });
@@ -429,9 +430,22 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       pool => !pool.updatedAt || now - pool.updatedAt > UPDATE_POOL_INTERVAL,
     );
 
-    // if (poolsToUpdate.length > 0) {
-    //   await this.updatePoolsReserves(poolsToUpdate);
-    // }
+    if (poolsToUpdate.length > 0) {
+      try {
+        this.logger.info(
+          `Started updating reserves for ${poolsToUpdate.length} pools for token ${token} on ${this.network}...`,
+        );
+        await this.updatePoolsReserves(poolsToUpdate);
+        this.logger.info(
+          `Finished updating reserves for ${poolsToUpdate.length} pools for token ${token} on ${this.network}...`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error updating reserves for pools for token ${token} on ${this.network}: ${error}`,
+        );
+        return [];
+      }
+    }
 
     pools = pools
       .sort((a, b) => {
