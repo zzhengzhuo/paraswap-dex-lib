@@ -721,6 +721,10 @@
     "0xe298b938631f750dd409fb18227c4a23dcdaab9b": {
       "balanceSlot": "0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00",
       "allowanceSlot": "0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace01"
+    },
+    "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a": {
+      "balanceSlot": "0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00",
+      "allowanceSlot": "0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace01"
     }
   },
   "42161": {
