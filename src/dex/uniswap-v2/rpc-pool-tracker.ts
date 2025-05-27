@@ -417,9 +417,9 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       pool => !pool.updatedAt || now - pool.updatedAt > UPDATE_POOL_INTERVAL,
     );
 
-    if (poolsToUpdate.length > 0) {
-      await this.updatePoolsReserves(poolsToUpdate);
-    }
+    // if (poolsToUpdate.length > 0) {
+    //   await this.updatePoolsReserves(poolsToUpdate);
+    // }
 
     pools = pools
       .sort((a, b) => {
