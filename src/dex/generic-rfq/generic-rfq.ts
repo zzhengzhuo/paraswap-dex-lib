@@ -381,24 +381,28 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         .multipliedBy(slippageFactor)
         .toFixed(0);
 
-      if (BigInt(makerAssetAmountFilled) < BigInt(requiredAmountWithSlippage)) {
-        const quoted = new BigNumber(makerAssetAmountFilled.toString());
-        const expected = new BigNumber(requiredAmountWithSlippage);
+      if (makerAssetAmountFilled < BigInt(requiredAmountWithSlippage)) {
+        this.logger.warn(
+          `${this.dexKey}: Slippage too high. makerAssetAmountFilled=${makerAssetAmountFilled}, required=${requiredAmountWithSlippage}`,
+        );
 
-        const slippedPercentage = new BigNumber(1)
-          .minus(quoted.div(expected))
-          .multipliedBy(100)
-          .toFixed(10);
-
-        const message = `Slipped, factor: ${makerAssetAmountFilled.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-        this.logger.warn(`${this.dexKey}: ${message}`);
-        throw new SlippageCheckError(message);
+        throw new SlippageCheckError(
+          side,
+          requiredAmountWithSlippage,
+          makerAssetAmountFilled.toString(),
+          slippageFactor,
+        );
       }
     } else {
       if (makerAssetAmount < destAmount) {
         const message = `Slipped, insufficient output: ${makerAssetAmount.toString()} < ${destAmount.toString()}`;
         this.logger.warn(`${this.dexKey}: ${message}`);
-        throw new SlippageCheckError(message);
+        throw new SlippageCheckError(
+          side,
+          destAmount.toString(),
+          makerAssetAmount.toString(),
+          slippageFactor,
+        );
       }
 
       const requiredAmountWithSlippage = new BigNumber(srcAmount.toString())
@@ -406,18 +410,16 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         .toFixed(0);
 
       if (takerAssetAmount > BigInt(requiredAmountWithSlippage)) {
-        const quoted = new BigNumber(takerAssetAmount.toString());
-        const expected = new BigNumber(requiredAmountWithSlippage);
+        this.logger.warn(
+          `${this.dexKey}: Slippage too high. takerAssetAmount=${takerAssetAmount}, required=${requiredAmountWithSlippage}`,
+        );
 
-        const slippedPercentage = quoted
-          .div(expected)
-          .minus(1)
-          .multipliedBy(100)
-          .toFixed(10);
-
-        const message = `Slipped, factor: ${takerAssetAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-        this.logger.warn(`${this.dexKey}: ${message}`);
-        throw new SlippageCheckError(message);
+        throw new SlippageCheckError(
+          side,
+          requiredAmountWithSlippage,
+          takerAssetAmount.toString(),
+          slippageFactor,
+        );
       }
     }
 

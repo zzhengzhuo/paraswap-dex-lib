@@ -562,68 +562,67 @@ export class SwaapV2 extends SimpleExchange implements IDex<SwaapV2Data> {
         );
       }
 
-      const srcAmount = BigInt(optimalSwapExchange.srcAmount);
-      const destAmount = BigInt(optimalSwapExchange.destAmount);
-      const quoteTokenAmount = BigInt(quote.amount);
+      const expiryAsBigInt = BigInt(quote.expiration);
+      const minDeadline = expiryAsBigInt > 0 ? expiryAsBigInt : BI_MAX_UINT256;
+
+      const srcAmount = optimalSwapExchange.srcAmount;
+      const destAmount = optimalSwapExchange.destAmount;
+      const quoteTokenAmount = quote.amount;
       const slippageFactor = options.slippageFactor;
 
       if (side === SwapSide.SELL) {
-        const requiredAmountWithSlippage = new BigNumber(destAmount.toString())
+        const requiredAmountWithSlippage = new BigNumber(destAmount)
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (quoteTokenAmount < BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteTokenAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
+        if (BigInt(quoteTokenAmount) < BigInt(requiredAmountWithSlippage)) {
+          const isTooStrict = new BigNumber(1)
+            .minus(slippageFactor)
+            .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          const slippedPercentage = new BigNumber(1)
-            .minus(quoted.div(expected))
-            .multipliedBy(100)
-            .toFixed(10);
-
-          const errorMsg = `Slipped, factor: ${quoteTokenAmount.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-
-          if (
-            new BigNumber(1)
-              .minus(slippageFactor)
-              .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            throw new TooStrictSlippageCheckError(errorMsg);
+          if (isTooStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
           }
-
-          throw new SlippageCheckError(errorMsg);
         }
       } else {
-        const requiredAmountWithSlippage = new BigNumber(srcAmount.toString())
+        const requiredAmountWithSlippage = new BigNumber(srcAmount)
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (quoteTokenAmount > BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteTokenAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = quoted
-            .div(expected)
+        if (BigInt(quoteTokenAmount) > BigInt(requiredAmountWithSlippage)) {
+          const isStrict = slippageFactor
             .minus(1)
-            .multipliedBy(100)
-            .toFixed(10);
+            .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          const errorMsg = `Slipped, factor: ${quoteTokenAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-
-          if (
-            slippageFactor
-              .minus(1)
-              .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            throw new TooStrictSlippageCheckError(errorMsg);
+          if (isStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
           }
-
-          throw new SlippageCheckError(errorMsg);
         }
       }
-
-      const expiryAsBigInt = BigInt(quote.expiration);
-      const minDeadline = expiryAsBigInt > 0 ? expiryAsBigInt : BI_MAX_UINT256;
 
       return [
         {

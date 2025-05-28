@@ -60,7 +60,6 @@ import {
   HashflowData,
   PriceLevel,
   RfqError,
-  SlippageCheckError,
 } from './types';
 import { SpecialDex } from '../../executor/types';
 
@@ -627,71 +626,77 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
       const expiryAsBigInt = BigInt(rfq.quotes[0].quoteData.quoteExpiry);
       const minDeadline = expiryAsBigInt > 0 ? expiryAsBigInt : BI_MAX_UINT256;
 
-      const baseTokenAmount = BigInt(rfq.quotes[0].quoteData.baseTokenAmount);
-      const quoteTokenAmount = BigInt(rfq.quotes[0].quoteData.quoteTokenAmount);
+      const baseTokenAmount = rfq.quotes[0].quoteData.baseTokenAmount;
+      const quoteTokenAmount = rfq.quotes[0].quoteData.quoteTokenAmount;
 
-      const srcAmount = BigInt(optimalSwapExchange.srcAmount);
-      const destAmount = BigInt(optimalSwapExchange.destAmount);
+      const srcAmount = optimalSwapExchange.srcAmount;
+      const destAmount = optimalSwapExchange.destAmount;
 
       const slippageFactor = options.slippageFactor;
 
       if (side === SwapSide.SELL) {
-        const requiredAmountWithSlippage = new BigNumber(destAmount.toString())
+        const requiredAmountWithSlippage = new BigNumber(destAmount)
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (quoteTokenAmount < BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteTokenAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
+        if (BigInt(quoteTokenAmount) < BigInt(requiredAmountWithSlippage)) {
+          const isTooStrict = BigNumber(1)
+            .minus(slippageFactor)
+            .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          const slippedPercentage = new BigNumber(1)
-            .minus(quoted.div(expected))
-            .multipliedBy(100)
-            .toFixed(10);
-
-          const errorMsg = `Slipped, factor: ${quoteTokenAmount.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-
-          if (
-            new BigNumber(1)
-              .minus(slippageFactor)
-              .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            throw new TooStrictSlippageCheckError(errorMsg);
+          if (isTooStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              quoteTokenAmount,
+              slippageFactor,
+            );
           }
-
-          throw new SlippageCheckError(errorMsg);
         }
       } else {
-        if (quoteTokenAmount < destAmount) {
-          const errorMsg = `Slipped, insufficient output: ${quoteTokenAmount.toString()} < ${destAmount.toString()}`;
-          throw new SlippageCheckError(errorMsg);
+        if (BigInt(quoteTokenAmount) < BigInt(destAmount)) {
+          const message = `Slipped, insufficient output: ${quoteTokenAmount.toString()} < ${destAmount.toString()}`;
+          this.logger.warn(message);
+
+          throw new SlippageCheckError(
+            side,
+            destAmount,
+            quoteTokenAmount,
+            slippageFactor,
+          );
         }
 
         const requiredAmountWithSlippage = new BigNumber(srcAmount.toString())
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (baseTokenAmount > BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(baseTokenAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = quoted
-            .div(expected)
+        if (BigInt(baseTokenAmount) > BigInt(requiredAmountWithSlippage)) {
+          const isTooStrict = slippageFactor
             .minus(1)
-            .multipliedBy(100)
-            .toFixed(10);
+            .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          const errorMsg = `Slipped, factor: ${baseTokenAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-
-          if (
-            slippageFactor
-              .minus(1)
-              .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            throw new TooStrictSlippageCheckError(errorMsg);
+          if (isTooStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              baseTokenAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              baseTokenAmount,
+              slippageFactor,
+            );
           }
-
-          throw new SlippageCheckError(errorMsg);
         }
       }
 

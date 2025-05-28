@@ -655,77 +655,65 @@ export class Dexalot extends SimpleExchange implements IDex<DexalotData> {
       const minDeadline = expiryAsBigInt > 0 ? expiryAsBigInt : BI_MAX_UINT256;
 
       const slippageFactor = options.slippageFactor;
-      let isFailOnSlippage = false;
-      let slippageErrorMessage = '';
-      let isTooStrictSlippage = false;
+
+      const destAmount = optimalSwapExchange.destAmount;
+      const srcAmount = optimalSwapExchange.srcAmount;
+
+      const takerAmount = order.takerAmount;
+      const makerAmount = order.makerAmount;
 
       if (isSell) {
-        const requiredAmount = optimalSwapExchange.destAmount;
-        const quoteAmount = BigInt(order.makerAmount);
-        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
+        const requiredAmountWithSlippage = new BigNumber(destAmount)
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount < BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
+        if (BigInt(makerAmount) < BigInt(requiredAmountWithSlippage)) {
+          const isTooStrict = BigNumber(1)
+            .minus(slippageFactor)
+            .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          const slippedPercentage = new BigNumber(1)
-            .minus(quoted.div(expected))
-            .multipliedBy(100)
-            .toFixed(10);
-
-          isFailOnSlippage = true;
-          slippageErrorMessage = `Slipped, factor: ${quoteAmount.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-          this.logger.warn(
-            `${this.dexKey}-${this.network}: ${slippageErrorMessage}`,
-          );
-
-          if (
-            new BigNumber(1)
-              .minus(slippageFactor)
-              .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            isTooStrictSlippage = true;
+          if (isTooStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              makerAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              makerAmount,
+              slippageFactor,
+            );
           }
         }
       } else {
-        const requiredAmount = optimalSwapExchange.srcAmount;
-        const quoteAmount = BigInt(order.takerAmount);
-        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
+        const requiredAmountWithSlippage = new BigNumber(srcAmount)
           .multipliedBy(slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount > BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = quoted
-            .div(expected)
+        if (BigInt(takerAmount) > BigInt(requiredAmountWithSlippage)) {
+          const isTooStrict = slippageFactor
             .minus(1)
-            .multipliedBy(100)
-            .toFixed(10);
+            .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          isFailOnSlippage = true;
-          slippageErrorMessage = `Slipped, factor: ${quoteAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`;
-          this.logger.warn(
-            `${this.dexKey}-${this.network}: ${slippageErrorMessage}`,
-          );
-
-          if (
-            slippageFactor
-              .minus(1)
-              .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION)
-          ) {
-            isTooStrictSlippage = true;
+          if (isTooStrict) {
+            throw new TooStrictSlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              takerAmount,
+              slippageFactor,
+            );
+          } else {
+            throw new SlippageCheckError(
+              side,
+              requiredAmountWithSlippage,
+              takerAmount,
+              slippageFactor,
+            );
           }
         }
-      }
-
-      if (isFailOnSlippage && isTooStrictSlippage) {
-        throw new TooStrictSlippageCheckError(slippageErrorMessage);
-      } else if (isFailOnSlippage) {
-        throw new SlippageCheckError(slippageErrorMessage);
       }
 
       return [

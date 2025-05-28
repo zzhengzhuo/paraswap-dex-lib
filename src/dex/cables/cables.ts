@@ -199,48 +199,35 @@ export class Cables extends SimpleExchange implements IDex<any> {
       const minDeadline = expiryAsBigInt > 0 ? expiryAsBigInt : BI_MAX_UINT256;
 
       if (side === SwapSide.BUY) {
-        const requiredAmount = BigInt(optimalSwapExchange.srcAmount);
-        const quoteAmount = BigInt(order.takerAmount);
-        const requiredAmountWithSlippage = new BigNumber(
-          requiredAmount.toString(),
-        )
+        const requiredAmount = optimalSwapExchange.srcAmount;
+        const quoteAmount = order.takerAmount;
+
+        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
           .multipliedBy(options.slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount > BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = quoted
-            .div(expected)
-            .minus(1)
-            .multipliedBy(100)
-            .toFixed(10);
-
-          throw new SlippageError(
-            `Slipped, factor: ${quoteAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`,
+        if (BigInt(quoteAmount) > BigInt(requiredAmountWithSlippage)) {
+          throw new SlippageCheckError(
+            side,
+            requiredAmountWithSlippage,
+            quoteAmount,
+            options.slippageFactor,
           );
         }
       } else {
-        const requiredAmount = BigInt(optimalSwapExchange.destAmount);
-        const quoteAmount = BigInt(order.makerAmount);
-        const requiredAmountWithSlippage = new BigNumber(
-          requiredAmount.toString(),
-        )
+        const requiredAmount = optimalSwapExchange.destAmount;
+        const quoteAmount = order.makerAmount;
+
+        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
           .multipliedBy(options.slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount < BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = new BigNumber(1)
-            .minus(quoted.div(expected))
-            .multipliedBy(100)
-            .toFixed(10);
-
-          throw new SlippageError(
-            `Slipped, factor: ${quoteAmount.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`,
+        if (BigInt(quoteAmount) < BigInt(requiredAmountWithSlippage)) {
+          throw new SlippageCheckError(
+            side,
+            requiredAmountWithSlippage,
+            quoteAmount,
+            options.slippageFactor,
           );
         }
       }
@@ -256,6 +243,7 @@ export class Cables extends SimpleExchange implements IDex<any> {
       ];
     } catch (e: any) {
       const message = `${this.dexKey}-${this.network}: ${e}`;
+
       this.logger.error(message);
       if (!e?.isSlippageError) {
         this.restrict();

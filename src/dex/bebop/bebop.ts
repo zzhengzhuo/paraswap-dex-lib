@@ -759,52 +759,37 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       }
 
       if (side === SwapSide.SELL) {
-        const requiredAmount = BigInt(optimalSwapExchange.destAmount);
-        const quoteAmount = BigInt(
-          response.buyTokens[utils.getAddress(destToken.address)].amount,
-        );
-        const requiredAmountWithSlippage = new BigNumber(
-          requiredAmount.toString(),
-        )
+        const requiredAmount = optimalSwapExchange.destAmount;
+        const quoteAmount =
+          response.buyTokens[utils.getAddress(destToken.address)].amount;
+
+        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
           .times(options.slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount < BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = new BigNumber(1)
-            .minus(quoted.div(expected))
-            .multipliedBy(100)
-            .toFixed(10);
-
-          throw new SlippageError(
-            `Slipped, factor: ${quoteAmount.toString()} < ${requiredAmountWithSlippage} (${slippedPercentage}%)`,
+        if (BigInt(quoteAmount) < BigInt(requiredAmountWithSlippage)) {
+          throw new SlippageCheckError(
+            side,
+            requiredAmountWithSlippage,
+            quoteAmount,
+            options.slippageFactor,
           );
         }
       } else {
-        const requiredAmount = BigInt(optimalSwapExchange.srcAmount);
-        const quoteAmount = BigInt(
-          response.sellTokens[utils.getAddress(srcToken.address)].amount,
-        );
-        const requiredAmountWithSlippage = new BigNumber(
-          requiredAmount.toString(),
-        )
+        const requiredAmount = optimalSwapExchange.srcAmount;
+        const quoteAmount =
+          response.sellTokens[utils.getAddress(srcToken.address)].amount;
+
+        const requiredAmountWithSlippage = new BigNumber(requiredAmount)
           .times(options.slippageFactor)
           .toFixed(0);
 
-        if (quoteAmount > BigInt(requiredAmountWithSlippage)) {
-          const quoted = new BigNumber(quoteAmount.toString());
-          const expected = new BigNumber(requiredAmountWithSlippage);
-
-          const slippedPercentage = quoted
-            .div(expected)
-            .minus(1)
-            .multipliedBy(100)
-            .toFixed(10);
-
-          throw new SlippageError(
-            `Slipped, factor: ${quoteAmount.toString()} > ${requiredAmountWithSlippage} (${slippedPercentage}%)`,
+        if (BigInt(quoteAmount) > BigInt(requiredAmountWithSlippage)) {
+          throw new SlippageCheckError(
+            side,
+            requiredAmountWithSlippage,
+            quoteAmount,
+            options.slippageFactor,
           );
         }
       }
