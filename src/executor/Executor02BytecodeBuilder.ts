@@ -783,36 +783,36 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     }
 
     let addedUnwrapForDexWithNoNeedWrapNative = false;
-    if (
-      isETHAddress(swap.srcToken) &&
-      maybeWethCallData &&
-      maybeWethCallData.withdraw &&
-      !curExchangeParam.needWrapNative
-    ) {
-      const prevSwap = priceRoute.bestRoute[routeIndex].swaps[swapIndex - 1];
-      let eachDexOnPrevSwapReturnsWeth: boolean = false;
+    // if (
+    //   isETHAddress(swap.srcToken) &&
+    //   maybeWethCallData &&
+    //   maybeWethCallData.withdraw &&
+    //   !curExchangeParam.needWrapNative
+    // ) {
+    //   const prevSwap = priceRoute.bestRoute[routeIndex].swaps[swapIndex - 1];
+    //   let eachDexOnPrevSwapReturnsWeth: boolean = false;
 
-      if (prevSwap && !prevBranchWasWrapped) {
-        eachDexOnPrevSwapReturnsWeth = this.eachDexOnSwapNeedsWrapNative(
-          priceRoute,
-          prevSwap,
-          exchangeParams,
-        );
-      }
+    //   if (prevSwap && !prevBranchWasWrapped) {
+    //     eachDexOnPrevSwapReturnsWeth = this.eachDexOnSwapNeedsWrapNative(
+    //       priceRoute,
+    //       prevSwap,
+    //       exchangeParams,
+    //     );
+    //   }
 
-      if (prevBranchWasWrapped || eachDexOnPrevSwapReturnsWeth) {
-        const withdrawCallData = this.buildUnwrapEthCallData(
-          this.getWETHAddress(curExchangeParam),
-          maybeWethCallData.withdraw.calldata,
-        );
+    //   if (prevBranchWasWrapped || eachDexOnPrevSwapReturnsWeth) {
+    //     const withdrawCallData = this.buildUnwrapEthCallData(
+    //       this.getWETHAddress(curExchangeParam),
+    //       maybeWethCallData.withdraw.calldata,
+    //     );
 
-        swapExchangeCallData = hexConcat([
-          withdrawCallData,
-          swapExchangeCallData,
-        ]);
-        addedUnwrapForDexWithNoNeedWrapNative = true;
-      }
-    }
+    //     swapExchangeCallData = hexConcat([
+    //       withdrawCallData,
+    //       swapExchangeCallData,
+    //     ]);
+    //     addedUnwrapForDexWithNoNeedWrapNative = true;
+    //   }
+    // }
 
     if (
       isLastSwap &&
