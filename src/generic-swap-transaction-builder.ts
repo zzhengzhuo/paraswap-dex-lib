@@ -85,8 +85,17 @@ export class GenericSwapTransactionBuilder {
     srcAmountWeth: bigint,
     destAmountWeth: bigint,
     side: SwapSide,
+    exchangeParams: DexExchangeParamWithBooleanNeedWrapNative[],
   ) {
     if (srcAmountWeth === 0n && destAmountWeth === 0n) return;
+
+    // handle cases when all dexs need either ETH or WETH
+    if (
+      srcAmountWeth === destAmountWeth &&
+      (exchangeParams.every(p => p.needWrapNative === true) ||
+        exchangeParams.every(p => p.needWrapNative === false))
+    )
+      return;
 
     return (
       this.dexAdapterService.getTxBuilderDexByKey(
@@ -194,6 +203,7 @@ export class GenericSwapTransactionBuilder {
       srcAmountWethToDeposit,
       destAmountWethToWithdraw,
       side,
+      exchangeParams,
     );
 
     const buildExchangeParams = await this.addDexExchangeApproveParams(
