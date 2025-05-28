@@ -36,6 +36,7 @@ export type Executor02SingleSwapCallDataParams = {
   routeIndex: number;
   swapIndex: number;
   wrapToSwapMap: { [key: number]: boolean };
+  unwrapToSwapMap: { [key: number]: boolean };
   wrapToSwapExchangeMap: { [key: string]: boolean };
   swap: OptimalSwap;
 };
@@ -588,6 +589,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     addedWrapToSwapExchangeMap: { [key: string]: boolean },
     allowToAddWrap = true,
     prevBranchWasWrapped = false,
+    unwrapToSwapMap: { [key: string]: boolean },
     maybeWethCallData?: DepositWithdrawReturn,
     addMultiSwapMetadata?: boolean,
     applyVerticalBranching?: boolean,
@@ -761,6 +763,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
             isSimpleSwap);
 
         if (customWethAddress || needUnwrap) {
+          unwrapToSwapMap[swapIndex] = true;
           withdrawCallData = this.buildUnwrapEthCallData(
             this.getWETHAddress(curExchangeParam),
             maybeWethCallData.withdraw.calldata,
@@ -783,36 +786,37 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
     }
 
     let addedUnwrapForDexWithNoNeedWrapNative = false;
-    // if (
-    //   isETHAddress(swap.srcToken) &&
-    //   maybeWethCallData &&
-    //   maybeWethCallData.withdraw &&
-    //   !curExchangeParam.needWrapNative
-    // ) {
-    //   const prevSwap = priceRoute.bestRoute[routeIndex].swaps[swapIndex - 1];
-    //   let eachDexOnPrevSwapReturnsWeth: boolean = false;
+    if (
+      isETHAddress(swap.srcToken) &&
+      maybeWethCallData &&
+      maybeWethCallData.withdraw &&
+      !curExchangeParam.needWrapNative &&
+      !unwrapToSwapMap[swapIndex - 1]
+    ) {
+      const prevSwap = priceRoute.bestRoute[routeIndex].swaps[swapIndex - 1];
+      let eachDexOnPrevSwapReturnsWeth: boolean = false;
 
-    //   if (prevSwap && !prevBranchWasWrapped) {
-    //     eachDexOnPrevSwapReturnsWeth = this.eachDexOnSwapNeedsWrapNative(
-    //       priceRoute,
-    //       prevSwap,
-    //       exchangeParams,
-    //     );
-    //   }
+      if (prevSwap && !prevBranchWasWrapped) {
+        eachDexOnPrevSwapReturnsWeth = this.eachDexOnSwapNeedsWrapNative(
+          priceRoute,
+          prevSwap,
+          exchangeParams,
+        );
+      }
 
-    //   if (prevBranchWasWrapped || eachDexOnPrevSwapReturnsWeth) {
-    //     const withdrawCallData = this.buildUnwrapEthCallData(
-    //       this.getWETHAddress(curExchangeParam),
-    //       maybeWethCallData.withdraw.calldata,
-    //     );
+      if (prevBranchWasWrapped || eachDexOnPrevSwapReturnsWeth) {
+        const withdrawCallData = this.buildUnwrapEthCallData(
+          this.getWETHAddress(curExchangeParam),
+          maybeWethCallData.withdraw.calldata,
+        );
 
-    //     swapExchangeCallData = hexConcat([
-    //       withdrawCallData,
-    //       swapExchangeCallData,
-    //     ]);
-    //     addedUnwrapForDexWithNoNeedWrapNative = true;
-    //   }
-    // }
+        swapExchangeCallData = hexConcat([
+          withdrawCallData,
+          swapExchangeCallData,
+        ]);
+        addedUnwrapForDexWithNoNeedWrapNative = true;
+      }
+    }
 
     if (
       isLastSwap &&
@@ -1148,6 +1152,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
       flags,
       maybeWethCallData,
       wrapToSwapMap,
+      unwrapToSwapMap,
       wrapToSwapExchangeMap,
       swap,
     } = params;
@@ -1188,6 +1193,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
             wrapToSwapExchangeMap,
             !wrapToSwapMap[swapIndex - 1],
             wrapToSwapMap[swapIndex - 1],
+            unwrapToSwapMap,
             maybeWethCallData,
             swap.swapExchanges.length > 1,
             applyVerticalBranching,
@@ -1252,6 +1258,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
 
     const appendedWrapToSwapExchangeMap = {};
     const addedWrapToSwapMap = {};
+    const unwrapToSwapMap = {};
     const callData = swaps.reduce<string>(
       (swapAcc, swap, swapIndex) =>
         hexConcat([
@@ -1265,6 +1272,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
             sender,
             wrapToSwapExchangeMap: appendedWrapToSwapExchangeMap,
             wrapToSwapMap: addedWrapToSwapMap,
+            unwrapToSwapMap,
             maybeWethCallData,
             swap,
             index: 0,
