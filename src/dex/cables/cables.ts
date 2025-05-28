@@ -208,6 +208,8 @@ export class Cables extends SimpleExchange implements IDex<any> {
 
         if (BigInt(quoteAmount) > BigInt(requiredAmountWithSlippage)) {
           throw new SlippageCheckError(
+            this.dexKey,
+            this.network,
             side,
             requiredAmountWithSlippage,
             quoteAmount,
@@ -224,6 +226,8 @@ export class Cables extends SimpleExchange implements IDex<any> {
 
         if (BigInt(quoteAmount) < BigInt(requiredAmountWithSlippage)) {
           throw new SlippageCheckError(
+            this.dexKey,
+            this.network,
             side,
             requiredAmountWithSlippage,
             quoteAmount,

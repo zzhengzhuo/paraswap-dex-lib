@@ -672,21 +672,18 @@ export class Dexalot extends SimpleExchange implements IDex<DexalotData> {
             .minus(slippageFactor)
             .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isTooStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              makerAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              makerAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            makerAmount,
+            slippageFactor,
+          );
         }
       } else {
         const requiredAmountWithSlippage = new BigNumber(srcAmount)
@@ -698,21 +695,18 @@ export class Dexalot extends SimpleExchange implements IDex<DexalotData> {
             .minus(1)
             .lt(DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isTooStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              takerAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              takerAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            takerAmount,
+            slippageFactor,
+          );
         }
       }
 

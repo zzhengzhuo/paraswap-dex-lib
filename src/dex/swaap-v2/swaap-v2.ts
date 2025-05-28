@@ -580,21 +580,18 @@ export class SwaapV2 extends SimpleExchange implements IDex<SwaapV2Data> {
             .minus(slippageFactor)
             .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isTooStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            quoteTokenAmount,
+            slippageFactor,
+          );
         }
       } else {
         const requiredAmountWithSlippage = new BigNumber(srcAmount)
@@ -602,25 +599,22 @@ export class SwaapV2 extends SimpleExchange implements IDex<SwaapV2Data> {
           .toFixed(0);
 
         if (BigInt(quoteTokenAmount) > BigInt(requiredAmountWithSlippage)) {
-          const isStrict = slippageFactor
+          const isTooStrict = slippageFactor
             .minus(1)
             .lt(SWAAP_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            quoteTokenAmount,
+            slippageFactor,
+          );
         }
       }
 

@@ -767,8 +767,10 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
           .times(options.slippageFactor)
           .toFixed(0);
 
-        if (BigInt(quoteAmount) < BigInt(requiredAmountWithSlippage)) {
+        if (BigInt(quoteAmount) < BigInt(requiredAmountWithSlippage) || true) {
           throw new SlippageCheckError(
+            this.dexKey,
+            this.network,
             side,
             requiredAmountWithSlippage,
             quoteAmount,
@@ -786,6 +788,8 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
 
         if (BigInt(quoteAmount) > BigInt(requiredAmountWithSlippage)) {
           throw new SlippageCheckError(
+            this.dexKey,
+            this.network,
             side,
             requiredAmountWithSlippage,
             quoteAmount,

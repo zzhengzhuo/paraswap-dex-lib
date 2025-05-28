@@ -5,7 +5,7 @@ import {
   AugustusOrderWithString,
   OrderInfo,
 } from '../paraswap-limit-orders/types';
-import { SwapSide } from '../../constants';
+import { Network, SwapSide } from '../../constants';
 import { ErrorCode } from '../hashflow/types';
 
 export type Pair = {
@@ -109,6 +109,8 @@ export class SlippageCheckError extends Error {
   code: ErrorCode = 'SLIPPAGE';
 
   constructor(
+    dexKey: string,
+    network: Network,
     side: SwapSide,
     expectedAmount: string,
     quotedAmount: string,
@@ -125,6 +127,8 @@ export class SlippageCheckError extends Error {
     const slippedPercentage = slipped.multipliedBy(100).toFixed(10);
 
     const errorDetails = {
+      dexKey,
+      network,
       side,
       expectedAmount: expected.toFixed(),
       quotedAmount: actual.toFixed(),
@@ -141,12 +145,14 @@ export class TooStrictSlippageCheckError extends SlippageCheckError {
   cause = 'TooStrictSlippageCheckError';
 
   constructor(
+    dexKey: string,
+    network: Network,
     side: SwapSide,
     expectedAmount: string,
     quotedAmount: string,
     slippageFactor: BigNumber,
   ) {
-    super(side, expectedAmount, quotedAmount, slippageFactor);
+    super(dexKey, network, side, expectedAmount, quotedAmount, slippageFactor);
     this.name = 'TooStrictSlippageCheckError';
   }
 }

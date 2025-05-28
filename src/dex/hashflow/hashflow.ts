@@ -644,21 +644,18 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
             .minus(slippageFactor)
             .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isTooStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              quoteTokenAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            quoteTokenAmount,
+            slippageFactor,
+          );
         }
       } else {
         if (BigInt(quoteTokenAmount) < BigInt(destAmount)) {
@@ -666,6 +663,8 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
           this.logger.warn(message);
 
           throw new SlippageCheckError(
+            this.dexKey,
+            this.network,
             side,
             destAmount,
             quoteTokenAmount,
@@ -682,21 +681,18 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
             .minus(1)
             .lt(HASHFLOW_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION);
 
-          if (isTooStrict) {
-            throw new TooStrictSlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              baseTokenAmount,
-              slippageFactor,
-            );
-          } else {
-            throw new SlippageCheckError(
-              side,
-              requiredAmountWithSlippage,
-              baseTokenAmount,
-              slippageFactor,
-            );
-          }
+          const SlippageError = isTooStrict
+            ? TooStrictSlippageCheckError
+            : SlippageCheckError;
+
+          throw new SlippageError(
+            this.dexKey,
+            this.network,
+            side,
+            requiredAmountWithSlippage,
+            baseTokenAmount,
+            slippageFactor,
+          );
         }
       }
 

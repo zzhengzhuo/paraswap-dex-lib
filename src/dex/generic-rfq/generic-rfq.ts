@@ -387,6 +387,8 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         );
 
         throw new SlippageCheckError(
+          this.dexKey,
+          this.network,
           side,
           requiredAmountWithSlippage,
           makerAssetAmountFilled.toString(),
@@ -398,6 +400,8 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         const message = `Slipped, insufficient output: ${makerAssetAmount.toString()} < ${destAmount.toString()}`;
         this.logger.warn(`${this.dexKey}: ${message}`);
         throw new SlippageCheckError(
+          this.dexKey,
+          this.network,
           side,
           destAmount.toString(),
           makerAssetAmount.toString(),
@@ -415,6 +419,8 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         );
 
         throw new SlippageCheckError(
+          this.dexKey,
+          this.network,
           side,
           requiredAmountWithSlippage,
           takerAssetAmount.toString(),
