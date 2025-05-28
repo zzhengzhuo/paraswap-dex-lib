@@ -25,9 +25,9 @@ import {
   BebopPricingResponse,
   RestrictData,
   RoutingInstruction,
-  SlippageError,
   TokenDataMap,
 } from './types';
+import { SlippageCheckError } from '../generic-rfq/types';
 import settlementABI from '../../abi/bebop/BebopSettlement.abi.json';
 import { SimpleExchange } from '../simple-exchange';
 import { BebopConfig } from './config';

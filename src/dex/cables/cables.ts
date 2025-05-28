@@ -43,12 +43,8 @@ import {
   CABLES_TOKENS_CACHES_TTL_S,
 } from './constants';
 import { CablesRateFetcher } from './rate-fetcher';
-import {
-  CablesData,
-  CablesRFQResponse,
-  RestrictData,
-  SlippageError,
-} from './types';
+import { CablesData, CablesRFQResponse, RestrictData } from './types';
+import { SlippageCheckError } from '../generic-rfq/types';
 import mainnetRFQAbi from '../../abi/cables/CablesMainnetRFQ.json';
 import { Interface } from 'ethers/lib/utils';
 import BigNumber from 'bignumber.js';

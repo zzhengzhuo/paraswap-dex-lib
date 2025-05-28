@@ -31,7 +31,10 @@ import {
   Token,
 } from '../../types';
 import { getDexKeysWithNetwork, Utils } from '../../utils';
-import { TooStrictSlippageCheckError } from '../generic-rfq/types';
+import {
+  SlippageCheckError,
+  TooStrictSlippageCheckError,
+} from '../generic-rfq/types';
 import { SimpleExchange } from '../simple-exchange';
 import { Adapters, HashflowConfig } from './config';
 import {
