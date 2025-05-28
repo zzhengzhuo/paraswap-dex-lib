@@ -750,8 +750,20 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         let withdrawCallData = '0x';
 
         const customWethAddress = curExchangeParam.wethAddress;
+
+        const needUnwrapAll =
+          isSimpleSwap ||
+          (isLastSwap
+            ? !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams)
+            : this.everyDexOnSwapNeedWrapNative(
+                priceRoute,
+                priceRoute.bestRoute[routeIndex].swaps[swapIndex + 1],
+                exchangeParams,
+              ));
+
         // check if current exchange is the last with needWrapNative
         const needUnwrap =
+          needUnwrapAll &&
           this.isLastExchangeWithNeedWrapNative(
             priceRoute,
             swap,
@@ -1063,6 +1075,37 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         return !curExchangeParam.needWrapNative;
       })
       .includes(true);
+  }
+
+  private everyDexOnSwapNeedWrapNative(
+    priceRoute: OptimalRate,
+    swap: OptimalSwap,
+    exchangeParams: DexExchangeBuildParam[],
+  ): boolean {
+    if (!swap) {
+      return false;
+    }
+
+    return swap.swapExchanges
+      .map(curSe => {
+        let index = 0;
+        let swapExchangeIndex = 0;
+        priceRoute.bestRoute.map(route => {
+          route.swaps.map(curSwap =>
+            curSwap.swapExchanges.map(async se => {
+              if (Object.is(se, curSe)) {
+                index = swapExchangeIndex;
+              }
+              swapExchangeIndex++;
+            }),
+          );
+        });
+
+        const curExchangeParam = exchangeParams[index];
+
+        return curExchangeParam.needWrapNative;
+      })
+      .every(t => t === true);
   }
 
   private doesSwapNeedToApplyVerticalBranching(
