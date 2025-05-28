@@ -769,10 +769,7 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
             swap,
             exchangeParams,
             exchangeParamIndex,
-          ) &&
-          (!isLastSwap ||
-            !this.doesRouteNeedsRootUnwrapEth(priceRoute, exchangeParams) ||
-            isSimpleSwap);
+          );
 
         if (customWethAddress || needUnwrap) {
           unwrapToSwapMap[swapIndex] = true;
