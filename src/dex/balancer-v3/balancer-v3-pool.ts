@@ -36,6 +36,7 @@ import {
 import { StableSurge, StableSurgeHookState } from './hooks/stableSurgeHook';
 
 export const WAD = BI_POWS[18];
+const FEE_SCALING_FACTOR = BI_POWS[11];
 
 export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
   handlers: {
@@ -77,6 +78,8 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
       ]),
       ['ERC4626']: new Interface([
         'function convertToAssets(uint256 shares) external view returns (uint256 assets)',
+        'function maxDeposit(address receiver) external view returns (uint256 maxAssets)',
+        'function maxMint(address receiver) external view returns (uint256 maxShares)',
       ]),
     };
 
@@ -225,9 +228,14 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
       i < newState[poolAddress].balancesLiveScaled18.length;
       i++
     ) {
+      const totalSwapFeeAmountRaw = BigInt(event.args.swapFeeAmountsRaw[i]);
+      const aggregateSwapFeeAmountRaw = this.mulDown(
+        totalSwapFeeAmountRaw,
+        newState[poolAddress].aggregateSwapFee,
+      );
       newState[poolAddress].balancesLiveScaled18[i] +=
         this.toScaled18ApplyRateRoundDown(
-          BigInt(event.args.amountsAddedRaw[i]),
+          BigInt(event.args.amountsAddedRaw[i]) - aggregateSwapFeeAmountRaw,
           newState[poolAddress].scalingFactors[i],
           newState[poolAddress].tokenRates[i] || WAD,
         );
@@ -253,9 +261,14 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
       i < newState[poolAddress].balancesLiveScaled18.length;
       i++
     ) {
+      const totalSwapFeeAmountRaw = BigInt(event.args.swapFeeAmountsRaw[i]);
+      const aggregateSwapFeeAmountRaw = this.mulDown(
+        totalSwapFeeAmountRaw,
+        newState[poolAddress].aggregateSwapFee,
+      );
       newState[poolAddress].balancesLiveScaled18[i] -=
         this.toScaled18ApplyRateRoundDown(
-          BigInt(event.args.amountsRemovedRaw[i]),
+          BigInt(event.args.amountsRemovedRaw[i]) + aggregateSwapFeeAmountRaw,
           newState[poolAddress].scalingFactors[i],
           newState[poolAddress].tokenRates[i] || WAD,
         );
@@ -286,9 +299,14 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
       this.logger.error(`swapEvent - token index not found in pool state`);
       return null;
     }
+    const totalSwapFeeAmountRaw = BigInt(event.args.swapFeeAmount);
+    const aggregateSwapFeeAmountRaw = this.mulDown(
+      totalSwapFeeAmountRaw,
+      newState[poolAddress].aggregateSwapFee,
+    );
     newState[poolAddress].balancesLiveScaled18[tokenInIndex] +=
       this.toScaled18ApplyRateRoundDown(
-        BigInt(event.args.amountIn),
+        BigInt(event.args.amountIn) - aggregateSwapFeeAmountRaw,
         newState[poolAddress].scalingFactors[tokenInIndex],
         newState[poolAddress].tokenRates[tokenInIndex] || WAD,
       );
@@ -357,7 +375,11 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
       return null;
     }
     const newState = _.cloneDeep(state) as PoolStateMap;
-    newState[poolAddress].swapFee = BigInt(event.args.swapFeePercentage);
+    // The contract is truncating the value before storing and will have a min step of 0.0000001% (effectively 5 decimal places of precision)
+    // See: https://github.com/balancer/balancer-v3-monorepo/blob/2f8cf5c78adef2a8b35beae0c90b590eb9f4f865/pkg/interfaces/contracts/vault/VaultTypes.sol#L436
+    const value = BigInt(event.args.swapFeePercentage);
+    newState[poolAddress].swapFee =
+      (value / FEE_SCALING_FACTOR) * FEE_SCALING_FACTOR;
     return newState;
   }
 
@@ -463,16 +485,20 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
           };
         }
       }
-
-      outputAmountRaw = this.vault.swap(
-        {
-          ...step.swapInput,
-          amountRaw: amount,
-          swapKind,
-        },
-        step.poolState,
-        hookState,
-      );
+      // try/catch as the swap can fail for e.g. wrapAmountTooSmall, etc
+      try {
+        outputAmountRaw = this.vault.swap(
+          {
+            ...step.swapInput,
+            amountRaw: amount,
+            swapKind,
+          },
+          step.poolState,
+          hookState,
+        );
+      } catch (err) {
+        outputAmountRaw = 0n;
+      }
       // Next step uses output from previous step as input
       amount = outputAmountRaw;
     }
@@ -502,10 +528,23 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
     const poolRates = await this.getPoolRates(poolState);
 
     // Update each pools rate
-    poolRates.forEach(({ poolAddress, tokenRates, erc4626Rates }, i) => {
-      poolState[poolAddress].tokenRates = tokenRates;
-      poolState[poolAddress].erc4626Rates = erc4626Rates;
-    });
+    poolRates.forEach(
+      (
+        {
+          poolAddress,
+          tokenRates,
+          erc4626Rates,
+          erc4626MaxDeposit,
+          erc4626MaxMint,
+        },
+        i,
+      ) => {
+        poolState[poolAddress].tokenRates = tokenRates;
+        poolState[poolAddress].erc4626Rates = erc4626Rates;
+        poolState[poolAddress].erc4626MaxDeposit = erc4626MaxDeposit;
+        poolState[poolAddress].erc4626MaxMint = erc4626MaxMint;
+      },
+    );
 
     // Update state
     const blockNumber = await this.dexHelper.provider.getBlockNumber();
@@ -572,7 +611,15 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
         tokenRates: tokenRateResult.tokenRates.map((r: string) => BigInt(r)),
         erc4626Rates: poolState[address].tokens.map(t => {
           if (!tokensWithRates[t]) return null;
-          return tokensWithRates[t];
+          return tokensWithRates[t].rate;
+        }),
+        erc4626MaxDeposit: poolState[address].tokens.map(t => {
+          if (!tokensWithRates[t]) return null;
+          return tokensWithRates[t].maxDeposit;
+        }),
+        erc4626MaxMint: poolState[address].tokens.map(t => {
+          if (!tokensWithRates[t]) return null;
+          return tokensWithRates[t].maxMint;
         }),
       };
     });
@@ -594,6 +641,8 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
         underlyingToken: null,
         index: tokenIndex,
         rate: poolState.tokenRates[tokenIndex],
+        maxDeposit: 0n, // N/A As non-erc4626
+        maxMint: 0n,
       };
     }
 
@@ -616,6 +665,8 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
           underlyingToken: tokenAddress,
           index: tokenIndex,
           rate: poolState.erc4626Rates[tokenIndex]!,
+          maxDeposit: poolState.erc4626MaxDeposit[tokenIndex]!,
+          maxMint: poolState.erc4626MaxMint[tokenIndex]!,
         };
       }
     }
@@ -702,6 +753,8 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
         rate: token.rate,
         poolAddress: token.mainToken,
         tokens: [token.mainToken, token.underlyingToken], // staticToken & underlying
+        maxDeposit: token.maxDeposit,
+        maxMint: token.maxMint,
       },
     };
   }
@@ -725,6 +778,8 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
         rate: token.rate,
         poolAddress: token.mainToken,
         tokens: [token.mainToken, token.underlyingToken], // staticToken & underlying
+        maxDeposit: token.maxDeposit,
+        maxMint: token.maxMint,
       },
     };
   }

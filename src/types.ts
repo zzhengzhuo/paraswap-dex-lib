@@ -172,7 +172,7 @@ export type DexExchangeParam = {
   specialDexSupportsInsertFromAmount?: boolean;
   swappedAmountNotPresentInExchangeData?: boolean;
   preSwapUnwrapCalldata?: string;
-  returnAmountPos: number | undefined;
+  returnAmountPos?: number;
   insertFromAmountPos?: number;
   permit2Approval?: boolean;
 };
@@ -227,6 +227,7 @@ export type PoolPrices<T> = {
   exchange: string;
   gasCost: number | number[];
   gasCostL2?: number | number[];
+  calldataGasCost?: number | number[];
   poolAddresses?: Array<Address>;
 };
 
@@ -317,6 +318,7 @@ export type Config = {
   idleDaoAuthToken?: string;
   forceRpcFallbackDexs: string[];
   apiKeyTheGraph: string;
+  lidoReferralAddress?: Address;
 };
 
 export type BigIntAsString = string;
