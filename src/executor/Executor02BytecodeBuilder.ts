@@ -759,6 +759,11 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
                 priceRoute,
                 priceRoute.bestRoute[routeIndex].swaps[swapIndex + 1],
                 exchangeParams,
+              ) ||
+              this.everyDexOnSwapDoesntNeedWrapNative(
+                priceRoute,
+                priceRoute.bestRoute[routeIndex].swaps[swapIndex + 1],
+                exchangeParams,
               ));
 
         // check if current exchange is the last with needWrapNative
@@ -1103,6 +1108,37 @@ export class Executor02BytecodeBuilder extends ExecutorBytecodeBuilder<
         return curExchangeParam.needWrapNative;
       })
       .every(t => t === true);
+  }
+
+  private everyDexOnSwapDoesntNeedWrapNative(
+    priceRoute: OptimalRate,
+    swap: OptimalSwap,
+    exchangeParams: DexExchangeBuildParam[],
+  ): boolean {
+    if (!swap) {
+      return false;
+    }
+
+    return swap.swapExchanges
+      .map(curSe => {
+        let index = 0;
+        let swapExchangeIndex = 0;
+        priceRoute.bestRoute.map(route => {
+          route.swaps.map(curSwap =>
+            curSwap.swapExchanges.map(async se => {
+              if (Object.is(se, curSe)) {
+                index = swapExchangeIndex;
+              }
+              swapExchangeIndex++;
+            }),
+          );
+        });
+
+        const curExchangeParam = exchangeParams[index];
+
+        return curExchangeParam.needWrapNative;
+      })
+      .every(t => t === false);
   }
 
   private doesSwapNeedToApplyVerticalBranching(
