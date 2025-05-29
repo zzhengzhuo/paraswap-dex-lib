@@ -85,15 +85,17 @@ export class GenericSwapTransactionBuilder {
     srcAmountWeth: bigint,
     destAmountWeth: bigint,
     side: SwapSide,
+    priceRoute: OptimalRate,
     exchangeParams: DexExchangeParamWithBooleanNeedWrapNative[],
   ) {
     if (srcAmountWeth === 0n && destAmountWeth === 0n) return;
 
-    // handle cases when all dexs need either ETH or WETH
     if (
       srcAmountWeth === destAmountWeth &&
-      (exchangeParams.every(p => p.needWrapNative === true) ||
-        exchangeParams.every(p => p.needWrapNative === false))
+      !this.hasAnyRouteWithEthAndDifferentNeedWrapNative(
+        priceRoute,
+        exchangeParams,
+      )
     )
       return;
 
@@ -203,6 +205,7 @@ export class GenericSwapTransactionBuilder {
       srcAmountWethToDeposit,
       destAmountWethToWithdraw,
       side,
+      priceRoute,
       exchangeParams,
     );
 
@@ -767,5 +770,47 @@ export class GenericSwapTransactionBuilder {
     });
 
     return dexExchangeBuildParams;
+  }
+
+  private hasAnyRouteWithEthAndDifferentNeedWrapNative(
+    priceRoute: OptimalRate,
+    exchangeParams: DexExchangeParamWithBooleanNeedWrapNative[],
+  ) {
+    const eth = ETHER_ADDRESS.toLowerCase();
+    const weth =
+      this.dexAdapterService.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
+
+    let currentExchangeParamIndex = 0;
+
+    return !priceRoute.bestRoute.every(route => {
+      const swapExchangeParams: DexExchangeParamWithBooleanNeedWrapNative[] =
+        [];
+
+      let hasEthWeth = false;
+
+      route.swaps.forEach(swap => {
+        swap.swapExchanges.forEach(se => {
+          const curExchangeParam = exchangeParams[currentExchangeParamIndex];
+          currentExchangeParamIndex++;
+          swapExchangeParams.push(curExchangeParam);
+        });
+
+        if (
+          swap.destToken.toLowerCase() === weth ||
+          swap.destToken.toLowerCase() === eth
+        ) {
+          hasEthWeth = true;
+        }
+      });
+
+      if (!hasEthWeth) {
+        return true;
+      }
+
+      return (
+        swapExchangeParams.every(p => p.needWrapNative === true) ||
+        swapExchangeParams.every(p => p.needWrapNative === false)
+      );
+    });
   }
 }
