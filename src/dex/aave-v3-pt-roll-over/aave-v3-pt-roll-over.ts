@@ -22,6 +22,7 @@ import PendleOracleABI from '../../abi/PendleOracle.json';
 
 import { ethers, Contract, BigNumber, Signer } from 'ethers';
 
+// Pendle SDK: https://github.com/pendle-finance/pendle-examples-public/tree/main/hosted-sdk-demo
 // import { callSDK, TransferLiquidityData } from '@pendle-sdk';
 
 export class AaveV3PtRollOver
@@ -143,9 +144,10 @@ export class AaveV3PtRollOver
     //         Non - Zero Bytes: 363
     // The total calldata cost is:
     //         (1081×4) +(363×16)=4324 + 5808=10132 gas
+    // Pendle API: https://api-v2.pendle.finance/core/docs#/SDK/SdkController_transferLiquidity
     return (
       CALLDATA_GAS_COST.ZERO_BYTE * 1081 + CALLDATA_GAS_COST.NONZERO_BYTE * 363
-    ); // Placeholder, actual cost is higher
+    );
   }
 
   getAdapterParam(
@@ -223,6 +225,8 @@ export class AaveV3PtRollOver
 
     const CHAIN_ID = 1;
 
+    // Pendle SDK: https://github.com/pendle-finance/pendle-examples-public/blob/main/hosted-sdk-demo/src/transfer-liquidity.ts
+    // Pendle API: https://api-v2.pendle.finance/core/docs#/SDK/SdkController_transferLiquidity
     // const res = await callSDK<TransferLiquidityData>(`/v1/sdk/${CHAIN_ID}/markets/${this.config.oldMarketAddress}/transfer-liquidity`, {
     //     receiver: recipient,
     //     slippage: 0.01,
