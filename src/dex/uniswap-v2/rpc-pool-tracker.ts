@@ -512,7 +512,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
   }
 
   async updatePoolsReserves(pools: Pool[]): Promise<void> {
-    const callData: MultiCallParams<bigint[]>[] = [];
+    const callData: MultiCallParams<[bigint, bigint, number]>[] = [];
 
     for (const pool of pools) {
       callData.push({
@@ -521,22 +521,22 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
         decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
           return generalDecoder(
             result,
-            ['uint112', 'uint112'],
-            [0n, 0n],
-            res => [BigInt(res[0]), BigInt(res[1])],
+            ['uint112', 'uint112', 'uint32'],
+            [0n, 0n, 0],
+            res => [BigInt(res[0]), BigInt(res[1]), Number(res[2])],
           );
         },
       });
     }
 
-    const results = await this.dexHelper.multiWrapper.tryAggregate<bigint[]>(
-      true,
-      callData,
-    );
+    const results = await this.dexHelper.multiWrapper.tryAggregate<
+      [bigint, bigint, number]
+    >(true, callData);
 
     for (let i = 0; i < pools.length; i++) {
-      const [reserve0, reserve1] = results[i].returnData as bigint[];
+      const [reserve0, reserve1, updatedAt] = results[i].returnData;
       const pool = pools[i];
+      pool.updatedAt = updatedAt * 1000; // convert to ms
       pool.reserve0 = reserve0;
       pool.reserve1 = reserve1;
       pool.reservesUpdatedAt = Date.now();
@@ -556,19 +556,20 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       )
       .sort((a, b) => {
         return b.updatedAt - a.updatedAt;
-      })
-      .slice(0, MAX_RESERVES_POOLS_UPDATE);
+      });
 
     if (pools.length === 0) {
       return [];
     }
 
     const now = Date.now();
-    const poolsToUpdate = pools.filter(
-      pool =>
-        !pool.reservesUpdatedAt ||
-        now - pool.reservesUpdatedAt > UPDATE_NEW_POOLS_INTERVAL,
-    );
+    const poolsToUpdate = pools
+      .filter(
+        pool =>
+          !pool.reservesUpdatedAt ||
+          now - pool.reservesUpdatedAt > UPDATE_NEW_POOLS_INTERVAL,
+      )
+      .slice(0, MAX_RESERVES_POOLS_UPDATE);
 
     if (poolsToUpdate.length > 0) {
       try {
