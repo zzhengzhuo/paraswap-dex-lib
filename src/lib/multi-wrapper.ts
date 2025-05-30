@@ -64,7 +64,7 @@ export class MultiWrapper {
       allCalls[Math.floor(i / batchSize)] = batch;
     }
 
-    if (allCalls.length > 100) {
+    if (allCalls.length > 25) {
       this.logger.warn(
         `MultiWrapper.tryAggregate: Number of batches (${
           allCalls.length
