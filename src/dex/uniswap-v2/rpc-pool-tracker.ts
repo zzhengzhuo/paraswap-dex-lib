@@ -38,7 +38,7 @@ const WRITE_BATCH_SIZE = 1_000;
 const READ_BATCH_SIZE = 10_000;
 // pool is valid if last update was less than 180 days ago, otherwise pool is considered stale and will not be used on pt
 const VALID_POOLS_AGE = 1000 * 60 * 60 * 24 * 180; // 180 days
-const MAX_RESERVES_POOLS_UPDATE = 1_000;
+const MAX_RESERVES_POOLS_UPDATE = 5_000;
 
 const FactoryABI = [
   {
@@ -304,69 +304,83 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     }
 
     const poolsIndexes = Object.keys(this.pools);
-    const poolsCalldata: MultiCallParams<number>[] = [];
-
     this.logger.info(
       `Updating pools age for ${poolsIndexes.length} pools on ${this.network}...`,
     );
 
-    for (const poolIndex of poolsIndexes) {
-      poolsCalldata.push({
-        target: this.pools[poolIndex].address,
-        callData: factoryIface.encodeFunctionData('getReserves', []),
-        decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
-          return generalDecoder(
-            result,
-            ['uint112', 'uint112', 'uint32'],
-            0,
-            res => Number(res[2]),
-          );
-        },
-      });
-    }
+    // batch poolsCalldata and process in chunks to avoid huge amounts of multi-calls
+    for (
+      let batchStart = 0;
+      batchStart < poolsIndexes.length;
+      batchStart += WRITE_BATCH_SIZE
+    ) {
+      const batchEnd = Math.min(
+        batchStart + WRITE_BATCH_SIZE,
+        poolsIndexes.length,
+      );
+      const batchIndexes = poolsIndexes.slice(batchStart, batchEnd);
 
-    const poolsData = await this.dexHelper.multiWrapper.tryAggregate<number>(
-      true,
-      poolsCalldata,
-    );
+      this.logger.info(
+        `Updating pools age for ${batchStart}-${batchEnd} pools on ${this.network}...`,
+      );
 
-    const poolsToUpdate: Record<string, string> = {};
-
-    for (let i = 0; i < poolsData.length; i++) {
-      const poolIndex = poolsIndexes[i];
-      const updatedAt = (poolsData[i].returnData as number) * 1000;
-
-      if (updatedAt !== this.pools[poolIndex].updatedAt) {
-        this.pools[poolIndex].updatedAt = updatedAt;
-
-        const pool: CachedPool = {
-          address: this.pools[poolIndex].address,
-          updatedAt,
-          token0: {
-            address: this.pools[poolIndex].token0Address,
-            decimals: this.pools[poolIndex].token0Decimals,
+      const batchCalldata: MultiCallParams<number>[] = batchIndexes.map(
+        poolIndex => ({
+          target: this.pools[poolIndex].address,
+          callData: factoryIface.encodeFunctionData('getReserves', []),
+          decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+            return generalDecoder(
+              result,
+              ['uint112', 'uint112', 'uint32'],
+              0,
+              res => Number(res[2]),
+            );
           },
-          token1: {
-            address: this.pools[poolIndex].token1Address,
-            decimals: this.pools[poolIndex].token1Decimals,
-          },
-        };
+        }),
+      );
 
-        poolsToUpdate[poolIndex] = JSON.stringify(pool);
+      const batchPoolsData =
+        await this.dexHelper.multiWrapper.tryAggregate<number>(
+          true,
+          batchCalldata,
+          undefined,
+          // as calls are small, should be affordable to use a larger batch size
+          WRITE_BATCH_SIZE,
+        );
+
+      const poolsToUpdate: Record<string, string> = {};
+
+      for (let i = 0; i < batchPoolsData.length; i++) {
+        const poolIndex = batchIndexes[i];
+        const updatedAt = (batchPoolsData[i].returnData as number) * 1000;
+
+        if (updatedAt !== this.pools[poolIndex].updatedAt) {
+          this.pools[poolIndex].updatedAt = updatedAt;
+
+          const pool: CachedPool = {
+            address: this.pools[poolIndex].address,
+            updatedAt,
+            token0: {
+              address: this.pools[poolIndex].token0Address,
+              decimals: this.pools[poolIndex].token0Decimals,
+            },
+            token1: {
+              address: this.pools[poolIndex].token1Address,
+              decimals: this.pools[poolIndex].token1Decimals,
+            },
+          };
+
+          poolsToUpdate[poolIndex] = JSON.stringify(pool);
+        }
+      }
+
+      if (Object.keys(poolsToUpdate).length > 0) {
+        await this.dexHelper.cache.hmset(this.cacheKey, poolsToUpdate);
       }
     }
 
-    const entries = Object.entries(poolsToUpdate);
-
-    for (let i = 0; i < entries.length; i += WRITE_BATCH_SIZE) {
-      const chunk = Object.fromEntries(entries.slice(i, i + WRITE_BATCH_SIZE));
-      await this.dexHelper.cache.hmset(this.cacheKey, chunk);
-    }
-
     this.logger.info(
-      `Finished update pools age for ${
-        Object.keys(poolsToUpdate).length
-      } pools on ${this.network}.`,
+      `Finished update pools age for ${poolsIndexes.length} pools on ${this.network}.`,
     );
   }
 
