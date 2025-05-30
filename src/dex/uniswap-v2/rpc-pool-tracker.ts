@@ -13,6 +13,7 @@ import { BytesLike, ethers } from 'ethers';
 
 type CachedPool = {
   address: Address;
+  updatedAt: number; // block timestamp in ms of when last _update happened
   token0: Token;
   token1: Token;
 };
@@ -147,7 +148,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     );
 
     this.cacheKey =
-      `${CACHE_PREFIX}_${this.dexKey}_${this.network}_pools`.toLowerCase();
+      `${CACHE_PREFIX}_${this.network}_${this.dexKey}_pools`.toLowerCase();
   }
 
   async initializePricing() {
@@ -306,7 +307,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
         allPoolsCallData,
       );
 
-    const poolsCalldata: MultiCallParams<string | bigint[]>[] = [];
+    const poolsCalldata: MultiCallParams<string | bigint[] | number>[] = [];
 
     for (const poolResult of allPoolsResults) {
       poolsCalldata.push(
@@ -320,17 +321,29 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
           callData: factoryIface.encodeFunctionData('token1', []),
           decodeFunction: addressDecode,
         },
+        {
+          target: poolResult.returnData,
+          callData: factoryIface.encodeFunctionData('getReserves', []),
+          decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+            return generalDecoder(
+              result,
+              ['uint112', 'uint112', 'uint32'],
+              0,
+              res => Number(res[2]),
+            );
+          },
+        },
       );
     }
 
     const poolsData = await this.dexHelper.multiWrapper.tryAggregate<
-      string | bigint[]
+      string | bigint[] | number
     >(true, poolsCalldata);
 
     const tokensSet = new Set<string>();
     for (let i = 0; i < allPoolsResults.length; i++) {
-      const token0 = (poolsData[i * 2].returnData as string).toLowerCase();
-      const token1 = (poolsData[i * 2 + 1].returnData as string).toLowerCase();
+      const token0 = (poolsData[i * 3].returnData as string).toLowerCase();
+      const token1 = (poolsData[i * 3 + 1].returnData as string).toLowerCase();
 
       tokensSet.add(token0.toLowerCase());
       tokensSet.add(token1.toLowerCase());
@@ -363,12 +376,13 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
     for (let i = 0; i < allPoolsResults.length; i++) {
       const poolAddress = allPoolsResults[i].returnData.toLowerCase();
-      const token0 = (poolsData[i * 2].returnData as string).toLowerCase();
-      const token1 = (poolsData[i * 2 + 1].returnData as string).toLowerCase();
-      // const [reserve0, reserve1] = pools[i * 3 + 2].returnData as bigint[];
+      const token0 = (poolsData[i * 3].returnData as string).toLowerCase();
+      const token1 = (poolsData[i * 3 + 1].returnData as string).toLowerCase();
+      const updatedAt = poolsData[i * 3 + 2].returnData as number;
 
       pools[i + fromIndex] = {
         address: poolAddress,
+        updatedAt: updatedAt * 1000,
         token0: {
           address: token0,
           decimals: decimals[token0],
