@@ -9,7 +9,7 @@ import {
 import { MultiCallParams, MultiResult } from '../../lib/multi-wrapper';
 import { Address, PoolLiquidity, Token } from '../../types';
 import { UniswapV2 } from './uniswap-v2';
-import { BytesLike, ethers } from 'ethers';
+import { BytesLike } from 'ethers';
 
 type CachedPool = {
   address: Address;
@@ -26,12 +26,14 @@ type Pool = {
   token1Decimals: number;
   reserve0: bigint;
   reserve1: bigint;
-  updatedAt: number | null;
+  reservesUpdatedAt: number | null;
 };
 
 const UPDATE_POOL_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const INIT_BATCH_SIZE = 1000;
 const READ_BATCH_SIZE = 10_000;
+// pools are valid if last update was after VALID_POOL_AGE since now
+const VALID_POOLS_AGE = 1000 * 60 * 60 * 24 * 180; // 180 days
 
 const FactoryABI = [
   {
@@ -128,6 +130,7 @@ const factoryIface = new Interface(FactoryABI);
 
 export class UniswapV2RpcPoolTracker extends UniswapV2 {
   private cacheKey: string;
+  protected allPoolsLength: number = 0;
   public pools: Record<string, Pool> = {};
 
   readonly isStatePollingDex = true;
@@ -223,38 +226,30 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       );
       const pools = await this.dexHelper.cache.hmget(this.cacheKey, keys);
 
+      const minValidUpdatedAt = Date.now() - VALID_POOLS_AGE;
       pools.forEach((pool, idx) => {
         if (pool) {
           const index = batchStart + idx;
           const parsedPool = JSON.parse(pool) as CachedPool;
-          this.pools[index] = {
-            address: parsedPool.address,
-            token0Address: parsedPool.token0.address,
-            token0Decimals: parsedPool.token0.decimals,
-            token1Address: parsedPool.token1.address,
-            token1Decimals: parsedPool.token1.decimals,
-            // reserve0: ethers.utils
-            //   .parseUnits(
-            //     Math.floor(Math.random() * 1000).toString(),
-            //     Math.min(parsedPool.token0.decimals, 18),
-            //   )
-            //   .toBigInt(),
-            // reserve1: ethers.utils
-            //   .parseUnits(
-            //     Math.floor(Math.random() * 1000).toString(),
-            //     Math.min(parsedPool.token1.decimals, 18),
-            //   )
-            //   .toBigInt(),
-            reserve0: 0n,
-            reserve1: 0n,
-            updatedAt: null,
-            // updatedAt: Date.now() + 1000 * 60 * 60,
-          };
+          if (parsedPool && parsedPool.updatedAt > minValidUpdatedAt) {
+            this.pools[index] = {
+              address: parsedPool.address,
+              token0Address: parsedPool.token0.address,
+              token0Decimals: parsedPool.token0.decimals,
+              token1Address: parsedPool.token1.address,
+              token1Decimals: parsedPool.token1.decimals,
+              reserve0: 0n,
+              reserve1: 0n,
+              reservesUpdatedAt: null,
+            };
+          }
         } else {
           this.logger.warn(
             `Pool with index ${batchStart + idx} not found in cache`,
           );
         }
+
+        this.allPoolsLength++;
       });
     }
   }
@@ -262,7 +257,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
   async updatePoolState() {
     await this.updatePools();
 
-    const allPools = Object.keys(this.pools).length;
+    const allPools = this.allPoolsLength;
     const allCachedPools = await this.dexHelper.cache.hlen(this.cacheKey);
 
     if (allPools < allCachedPools) {
@@ -425,7 +420,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
       const pool = pools[i];
       pool.reserve0 = reserve0;
       pool.reserve1 = reserve1;
-      pool.updatedAt = Date.now();
+      pool.reservesUpdatedAt = Date.now();
     }
   }
 
@@ -445,7 +440,9 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
     const now = Date.now();
     const poolsToUpdate = pools.filter(
-      pool => !pool.updatedAt || now - pool.updatedAt > UPDATE_POOL_INTERVAL,
+      pool =>
+        !pool.reservesUpdatedAt ||
+        now - pool.reservesUpdatedAt > UPDATE_POOL_INTERVAL,
     );
 
     if (poolsToUpdate.length > 0) {
