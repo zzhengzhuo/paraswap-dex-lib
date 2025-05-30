@@ -144,52 +144,39 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     const isWethSrc = srcToken.toLowerCase() === wethAddress;
     const isWethDest = destToken.toLowerCase() === wethAddress;
 
-    const needCheckWeth = isEthSrc || isEthDest;
-    const needCheckETH = isWethSrc || isWethDest;
-
     const _src = isEthSrc ? NULL_ADDRESS : srcToken.toLowerCase();
     const _dest = isEthDest ? NULL_ADDRESS : destToken.toLowerCase();
 
+    const matchesSrcToken = (poolToken: string): boolean => {
+      return (
+        poolToken === _src ||
+        (isEthSrc && poolToken === wethAddress) ||
+        (isWethSrc && poolToken === NULL_ADDRESS)
+      );
+    };
+
+    const matchesDestToken = (poolToken: string): boolean => {
+      return (
+        poolToken === _dest ||
+        (isEthDest && poolToken === wethAddress) ||
+        (isWethDest && poolToken === NULL_ADDRESS)
+      );
+    };
+
     return this.pools
       .filter(pool => {
-        const checkToken0Src = pool.token0.address === _src;
-        const checkToken1Dest = pool.token1.address === _dest;
-        const checkToken1Src = pool.token1.address === _src;
-        const checkToken0Dest = pool.token0.address === _dest;
-
-        const checkToken0Weth =
-          needCheckWeth && pool.token0.address === wethAddress; // check token0 to discover WETH pools when ETH is src or dest
-        const checkToken0ETH =
-          needCheckETH && pool.token0.address === NULL_ADDRESS; // check token0 to discover ETH pools when WETH is src or dest
-        const checkToken1Weth =
-          needCheckWeth && pool.token1.address === wethAddress; // check token1 to discover WETH pools when ETH is src or dest
-        const checkToken1ETH =
-          needCheckETH && pool.token1.address === NULL_ADDRESS; // check token1 to discover ETH pools when WETH is src or dest
+        const token0 = pool.token0.address;
+        const token1 = pool.token1.address;
 
         return (
-          ((checkToken0Src ||
-            (isEthSrc && checkToken0Weth) ||
-            (isWethSrc && checkToken0ETH)) &&
-            (checkToken1Dest ||
-              (isEthDest && checkToken1Weth) ||
-              (isWethDest && checkToken1ETH))) ||
-          ((checkToken0Dest ||
-            (isEthDest && checkToken0Weth) ||
-            (isWethDest && checkToken0ETH)) &&
-            (checkToken1Src ||
-              (isEthSrc && checkToken1Weth) ||
-              (isWethSrc && checkToken1ETH)))
+          (matchesSrcToken(token0) && matchesDestToken(token1)) ||
+          (matchesSrcToken(token1) && matchesDestToken(token0))
         );
       })
-      .sort((a, b) => {
-        const volumeA = parseInt(a.volumeUSD || '0');
-        const volumeB = parseInt(b.volumeUSD || '0');
-        if (volumeA >= volumeB) {
-          return -1;
-        }
-
-        return 1;
-      })
+      .sort(
+        (a, b) =>
+          parseFloat(b.volumeUSD || '0') - parseFloat(a.volumeUSD || '0'),
+      )
       .map(pool => ({
         id: pool.id,
         key: {

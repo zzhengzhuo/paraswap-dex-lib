@@ -190,12 +190,20 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     const pricesPromises = availablePools.map(async poolId => {
       const pool = pools.find(p => p.id === poolId)!;
 
+      const fromAddress = from.address.toLowerCase();
+      const poolCurrency0 = pool.key.currency0;
+
+      const isFromETH = isETHAddress(fromAddress);
+      const isFromWETH = fromAddress === wethAddr;
+
+      const poolIsETH = poolCurrency0 === NULL_ADDRESS;
+      const poolIsWETH = poolCurrency0 === wethAddr;
+
       const zeroForOne =
-        from.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
-        (isETHAddress(from.address) && pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
-        (isETHAddress(from.address) && pool.key.currency0 === wethAddr) || // ETH is src and WETH pool
-        (from.address.toLowerCase() === wethAddr &&
-          pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
+        fromAddress === poolCurrency0 ||
+        (isFromETH && poolIsETH) || // ETH is src and native ETH pool
+        (isFromETH && poolIsWETH) || // ETH is src and WETH pool
+        (isFromWETH && poolIsETH); // WETH is src and native ETH pool
 
       const eventPool = await this.poolManager.getEventPool(
         poolId,
