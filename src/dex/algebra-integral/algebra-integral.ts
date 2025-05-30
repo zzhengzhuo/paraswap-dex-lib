@@ -19,7 +19,6 @@ import {
 import {
   SwapSide,
   Network,
-  SUBGRAPH_TIMEOUT,
   DEST_TOKEN_DEX_TRANSFERS,
   SRC_TOKEN_DEX_TRANSFERS,
 } from '../../constants';
@@ -53,17 +52,20 @@ import {
   DEFAULT_ID_ERC20_AS_STRING,
 } from '../../lib/tokens/types';
 import { extractReturnAmountPosition } from '../../executor/utils';
+import { AlgebraIntegralFactory } from './algebra-integral-factory';
 
 const ALGEBRA_QUOTE_GASLIMIT = 2_000_000;
 const ALGEBRA_EFFICIENCY_FACTOR = 3;
+
 export class AlgebraIntegral
   extends SimpleExchange
   implements IDex<AlgebraIntegralData>
 {
   readonly hasConstantPriceLargeAmounts = false;
   readonly needWrapNative = true;
-
   readonly isFeeOnTransferSupported = true;
+
+  private readonly factory: AlgebraIntegralFactory;
 
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(AlgebraIntegralConfig);
@@ -86,6 +88,18 @@ export class AlgebraIntegral
       UniswapV3MultiABI as AbiItem[],
       this.config.uniswapMulticall,
     );
+
+    this.factory = new AlgebraIntegralFactory(
+      dexHelper,
+      dexKey,
+      this.config.factory,
+      this.config,
+      this.logger,
+    );
+  }
+
+  async initializePricing(blockNumber: number) {
+    await this.factory.initialize(blockNumber);
   }
 
   getAdapters(side: SwapSide): { name: string; index: number }[] | null {
@@ -100,8 +114,6 @@ export class AlgebraIntegral
     const tokenAddresses = this._sortTokens(srcAddress, destAddress).join('_');
     return `${this.dexKey}_${tokenAddresses}_${deployerAddress}`;
   }
-
-  async initializePricing(blockNumber: number) {}
 
   // Returns list of pool identifiers that can be used
   // for a given swap. poolIdentifiers must be unique
@@ -123,12 +135,16 @@ export class AlgebraIntegral
 
     if (_srcAddress === _destAddress) return [];
 
-    const pools = await this.getAvailablePools(_srcAddress, _destAddress);
+    const pools = await this.factory.getAvailablePoolsForPair(
+      _srcAddress,
+      _destAddress,
+      blockNumber,
+    );
 
     if (pools.length === 0) return [];
 
     return pools.map(pool =>
-      this.getPoolIdentifier(_srcAddress, _destAddress, pool!.deployer),
+      this.getPoolIdentifier(_srcAddress, _destAddress, pool.deployer),
     );
   }
 
@@ -342,7 +358,23 @@ export class AlgebraIntegral
 
       if (_srcAddress === _destAddress) return null;
 
-      const pools = await this.getAvailablePools(_srcAddress, _destAddress);
+      let pools = await this.factory.getAvailablePoolsForPair(
+        _srcAddress,
+        _destAddress,
+        blockNumber,
+      );
+
+      if (limitPools && limitPools.length > 0) {
+        const limitPoolsSet = new Set(limitPools);
+        pools = pools.filter(pool => {
+          const poolIdentifier = this.getPoolIdentifier(
+            _srcAddress,
+            _destAddress,
+            pool.deployer,
+          );
+          return limitPoolsSet.has(poolIdentifier);
+        });
+      }
 
       const rpcPrice = await this.getPricingFromRpc(
         _srcToken,
@@ -463,54 +495,6 @@ export class AlgebraIntegral
       payload,
       networkFee: '0',
     };
-  }
-
-  async getAvailablePools(
-    srcToken: Address,
-    destToken: Address,
-  ): Promise<Pool[]> {
-    // fetch only pools with positive totalValueLockedUSD
-    const availablePoolsQuery = `query ($token0: Bytes!, $token1: Bytes!) {
-      pools (where :{token0: $token0, token1: $token1, totalValueLockedUSD_gt: 0}, orderBy: totalValueLockedUSD, orderDirection: desc) { 
-         id
-         deployer
-         token0{
-          id 
-          decimals
-         }
-         token1{
-          id 
-          decimals
-         }
-      }
-   }`;
-
-    const [token0, token1] =
-      parseInt(srcToken, 16) < parseInt(destToken, 16)
-        ? [srcToken, destToken]
-        : [destToken, srcToken];
-
-    const { data } = await this.dexHelper.httpRequest.querySubgraph<{
-      data: {
-        pools: {
-          id: string;
-          deployer: string;
-        }[];
-      };
-    }>(
-      this.config.subgraphURL,
-      {
-        query: availablePoolsQuery,
-        variables: { token0, token1 },
-      },
-      { timeout: SUBGRAPH_TIMEOUT },
-    );
-    return data.pools.map(pool => ({
-      poolAddress: pool.id,
-      token0: token0,
-      token1: token1,
-      deployer: pool.deployer,
-    }));
   }
 
   // Returns list of top pools based on liquidity. Max

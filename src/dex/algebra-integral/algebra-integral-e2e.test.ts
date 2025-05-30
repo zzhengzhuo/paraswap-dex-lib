@@ -137,7 +137,7 @@ describe('Algebra', () => {
       const tokenASymbol: string = 'WOLF';
       const tokenBSymbol: string = 'WMATIC';
 
-      const tokenAAmount: string = '100000000000';
+      const tokenAAmount: string = '10000000000';
       const tokenBAmount: string = '100000000000000000';
       const nativeTokenAmount = '1000000000000000000';
 
