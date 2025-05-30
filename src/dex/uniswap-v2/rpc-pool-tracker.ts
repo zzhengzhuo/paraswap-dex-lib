@@ -18,6 +18,7 @@ type CachedPool = {
   token1: Token;
 };
 
+// pools structure without nested objects can save up to 30% of memory (pancake-swap-v2 has 1.8 pools)
 type Pool = {
   address: Address;
   token0Address: Address;
@@ -27,13 +28,17 @@ type Pool = {
   reserve0: bigint;
   reserve1: bigint;
   reservesUpdatedAt: number | null;
+  updatedAt: number; // block timestamp in ms of when last _update happened
 };
 
-const UPDATE_POOL_INTERVAL = 10 * 60 * 1000; // 10 minutes
-const INIT_BATCH_SIZE = 1000;
+// also used to check if reserves should be updated
+const UPDATE_NEW_POOLS_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const UPDATE_POOLS_AGE_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+const WRITE_BATCH_SIZE = 1_000;
 const READ_BATCH_SIZE = 10_000;
-// pools are valid if last update was after VALID_POOL_AGE since now
+// pool is valid if last update was less than 180 days ago, otherwise pool is considered stale and will not be used on pt
 const VALID_POOLS_AGE = 1000 * 60 * 60 * 24 * 180; // 180 days
+const MAX_RESERVES_POOLS_UPDATE = 1_000;
 
 const FactoryABI = [
   {
@@ -135,7 +140,8 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
 
   readonly isStatePollingDex = true;
 
-  private updateInterval: NodeJS.Timeout | null = null;
+  private newPoolsUpdateInterval: NodeJS.Timeout | null = null;
+  private poolsAgeUpdateInterval: NodeJS.Timeout | null = null;
 
   constructor(
     protected network: Network,
@@ -160,15 +166,32 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     );
     if (!this.dexHelper.config.isSlave) {
       await this.updatePools(true);
+      await this.updatePoolsAge();
 
-      this.updateInterval = setInterval(async () => {
-        await this.updatePools();
-      }, UPDATE_POOL_INTERVAL);
+      this.newPoolsUpdateInterval = setInterval(async () => {
+        try {
+          await this.updatePools();
+        } catch (error) {
+          this.logger.error(
+            `Error updating new pools for ${this.dexKey} on ${this.network}: ${error}`,
+          );
+        }
+      }, UPDATE_NEW_POOLS_INTERVAL);
+
+      this.poolsAgeUpdateInterval = setInterval(async () => {
+        try {
+          await this.updatePoolsAge();
+        } catch (error) {
+          this.logger.error(
+            `Error updating pools age for ${this.dexKey} on ${this.network}: ${error}`,
+          );
+        }
+      }, UPDATE_POOLS_AGE_INTERVAL);
     }
   }
 
   async updatePools(initialize = false) {
-    const allPools = await this.getAllPoolsLength();
+    const allPools = await this.getOnChainPoolsLength();
     const allCachedPools = await this.dexHelper.cache.hlen(this.cacheKey);
 
     const missingPools = allPools - allCachedPools;
@@ -187,14 +210,17 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
   async initPools(fromIndex: number, toIndex: number) {
     this.logger.info(`Initializing pools from ${fromIndex} to ${toIndex}...`);
 
-    for (let i = fromIndex; i < toIndex; i += INIT_BATCH_SIZE) {
+    for (let i = fromIndex; i < toIndex; i += WRITE_BATCH_SIZE) {
       this.logger.info(
-        `Fetching pools from ${i} to ${Math.min(i + INIT_BATCH_SIZE, toIndex)}`,
+        `Fetching pools from ${i} to ${Math.min(
+          i + WRITE_BATCH_SIZE,
+          toIndex,
+        )}`,
       );
 
       const fetchedPools = await this.fetchPools(
         i,
-        Math.min(i + INIT_BATCH_SIZE, toIndex),
+        Math.min(i + WRITE_BATCH_SIZE, toIndex),
       );
       const pools = Object.fromEntries(
         Object.entries(fetchedPools).map(([key, value]) => [
@@ -238,6 +264,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
               token0Decimals: parsedPool.token0.decimals,
               token1Address: parsedPool.token1.address,
               token1Decimals: parsedPool.token1.decimals,
+              updatedAt: parsedPool.updatedAt,
               reserve0: 0n,
               reserve1: 0n,
               reservesUpdatedAt: null,
@@ -265,7 +292,85 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     }
   }
 
-  async getAllPoolsLength() {
+  async updatePoolsAge() {
+    this.logger.info(
+      `Starting update pools age for ${this.dexKey} on ${this.network}...`,
+    );
+    const allPools = this.allPoolsLength;
+    const allCachedPools = await this.dexHelper.cache.hlen(this.cacheKey);
+
+    if (allPools < allCachedPools) {
+      await this.getCachedPools(allPools, allCachedPools);
+    }
+
+    const poolsIndexes = Object.keys(this.pools);
+    const poolsCalldata: MultiCallParams<number>[] = [];
+
+    this.logger.info(
+      `Updating pools age for ${poolsIndexes.length} pools on ${this.network}...`,
+    );
+
+    for (const poolIndex of poolsIndexes) {
+      poolsCalldata.push({
+        target: this.pools[poolIndex].address,
+        callData: factoryIface.encodeFunctionData('getReserves', []),
+        decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+          return generalDecoder(
+            result,
+            ['uint112', 'uint112', 'uint32'],
+            0,
+            res => Number(res[2]),
+          );
+        },
+      });
+    }
+
+    const poolsData = await this.dexHelper.multiWrapper.tryAggregate<number>(
+      true,
+      poolsCalldata,
+    );
+
+    const poolsToUpdate: Record<string, string> = {};
+
+    for (let i = 0; i < poolsData.length; i++) {
+      const poolIndex = poolsIndexes[i];
+      const updatedAt = (poolsData[i].returnData as number) * 1000;
+
+      if (updatedAt !== this.pools[poolIndex].updatedAt) {
+        this.pools[poolIndex].updatedAt = updatedAt;
+
+        const pool: CachedPool = {
+          address: this.pools[poolIndex].address,
+          updatedAt,
+          token0: {
+            address: this.pools[poolIndex].token0Address,
+            decimals: this.pools[poolIndex].token0Decimals,
+          },
+          token1: {
+            address: this.pools[poolIndex].token1Address,
+            decimals: this.pools[poolIndex].token1Decimals,
+          },
+        };
+
+        poolsToUpdate[poolIndex] = JSON.stringify(pool);
+      }
+    }
+
+    const entries = Object.entries(poolsToUpdate);
+
+    for (let i = 0; i < entries.length; i += WRITE_BATCH_SIZE) {
+      const chunk = Object.fromEntries(entries.slice(i, i + WRITE_BATCH_SIZE));
+      await this.dexHelper.cache.hmset(this.cacheKey, chunk);
+    }
+
+    this.logger.info(
+      `Finished update pools age for ${
+        Object.keys(poolsToUpdate).length
+      } pools on ${this.network}.`,
+    );
+  }
+
+  async getOnChainPoolsLength() {
     const allPoolsCallData = {
       target: this.factoryAddress,
       callData: factoryIface.encodeFunctionData('allPairsLength', []),
@@ -430,9 +535,15 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
   ): Promise<PoolLiquidity[]> {
     const token = tokenAddress.toLowerCase();
 
-    let pools = Object.values(this.pools).filter(
-      pool => pool.token0Address === token || pool.token1Address === token,
-    );
+    // sort by updateAt with the assumption that pools with good liquidity are updated more frequently
+    let pools = Object.values(this.pools)
+      .filter(
+        pool => pool.token0Address === token || pool.token1Address === token,
+      )
+      .sort((a, b) => {
+        return b.updatedAt - a.updatedAt;
+      })
+      .slice(0, MAX_RESERVES_POOLS_UPDATE);
 
     if (pools.length === 0) {
       return [];
@@ -442,7 +553,7 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     const poolsToUpdate = pools.filter(
       pool =>
         !pool.reservesUpdatedAt ||
-        now - pool.reservesUpdatedAt > UPDATE_POOL_INTERVAL,
+        now - pool.reservesUpdatedAt > UPDATE_NEW_POOLS_INTERVAL,
     );
 
     if (poolsToUpdate.length > 0) {
@@ -527,9 +638,13 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
   }
 
   releaseResources() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
+    if (this.newPoolsUpdateInterval) {
+      clearInterval(this.newPoolsUpdateInterval);
+      this.newPoolsUpdateInterval = null;
+    }
+    if (this.poolsAgeUpdateInterval) {
+      clearInterval(this.poolsAgeUpdateInterval);
+      this.poolsAgeUpdateInterval = null;
     }
   }
 }
