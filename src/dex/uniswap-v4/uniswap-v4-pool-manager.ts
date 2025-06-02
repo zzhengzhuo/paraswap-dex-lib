@@ -238,6 +238,13 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     const sqrtPriceX96 = BigInt(event.args.sqrtPriceX96);
     const tick = parseInt(event.args.tick);
 
+    if (hooks !== NULL_ADDRESS) {
+      this.logger.warn(
+        `Pool ${id} has hooks ${hooks}, which is not supported yet. Skipping.`,
+      );
+      return {};
+    }
+
     this.pools.push({
       id,
       fee,
