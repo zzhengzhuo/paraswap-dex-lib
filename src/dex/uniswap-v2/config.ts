@@ -365,6 +365,7 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
       feeCode: 20,
     },
   },
+  // RPC Pool Tracker is used
   PancakeSwapV2: {
     [Network.BSC]: {
       // subgraphURL: 'AD7yfts4Uzeav8eXQ6yxZ64VXjzDrJ1b76Gvka2VSnhd',
