@@ -68,7 +68,7 @@ export class MultiWrapper {
       this.logger.warn(
         `MultiWrapper.tryAggregate: Number of batches (${
           allCalls.length
-        }) exceeds 100 (total calls ${
+        }) exceeds 25 (total calls ${
           calls.length
         }), this may lead to performance issues. First call: ${JSON.stringify(
           calls[0],
