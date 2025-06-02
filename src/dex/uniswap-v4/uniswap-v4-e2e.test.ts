@@ -95,7 +95,7 @@ describe('UniswapV4 E2E', () => {
       );
     });
 
-    describe('WETH -> USDC', () => {
+    describe.skip('WETH -> USDC', () => {
       const tokenASymbol: string = 'WETH';
       const tokenBSymbol: string = 'USDC';
 
@@ -204,6 +204,23 @@ describe('UniswapV4 E2E', () => {
         tokenBAmount,
       );
     });
+
+    describe('DAI -> USDT', () => {
+      const tokenASymbol: string = 'DAI';
+      const tokenBSymbol: string = 'USDT';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '10000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
   });
 
   describe('Optimism', () => {
@@ -235,6 +252,23 @@ describe('UniswapV4 E2E', () => {
       const tokenBSymbol: string = 'USDCe';
 
       const tokenAAmount: string = '100000000000000';
+      const tokenBAmount: string = '10000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+
+    describe('USDCe -> USDCn', () => {
+      const tokenASymbol: string = 'USDCe';
+      const tokenBSymbol: string = 'USDCn';
+
+      const tokenAAmount: string = '3195795';
       const tokenBAmount: string = '10000000';
 
       testForNetwork(

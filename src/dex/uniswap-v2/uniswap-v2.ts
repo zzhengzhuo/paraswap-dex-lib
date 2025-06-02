@@ -60,15 +60,9 @@ import { Uniswapv2ConstantProductPool } from './uniswap-v2-constant-product-pool
 import { applyTransferFee } from '../../lib/token-transfer-fee';
 import _rebaseTokens from '../../rebase-tokens.json';
 import { Flag, SpecialDex } from '../../executor/types';
-import {
-  hexZeroPad,
-  hexlify,
-  solidityPack,
-  hexDataLength,
-  id,
-  hexConcat,
-} from 'ethers/lib/utils';
+import { hexZeroPad, hexlify, solidityPack, hexConcat } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
+import { OnPoolCreatedCallback, UniswapV2Factory } from './uniswap-v2-factory';
 
 const rebaseTokens = _rebaseTokens as { chainId: number; address: string }[];
 
@@ -233,6 +227,10 @@ export class UniswapV2
 
   logger: Logger;
 
+  private readonly factoryInst: UniswapV2Factory;
+
+  private newlyCreatedPoolKeys: Set<string> = new Set();
+
   static directFunctionName = directUniswapFunctionName;
   static directFunctionNameV6 = directUniswapFunctionNameV6;
 
@@ -282,6 +280,19 @@ export class UniswapV2
 
     this.routerInterface = new Interface(ParaSwapABI);
     this.exchangeRouterInterface = new Interface(UniswapV2ExchangeRouterABI);
+
+    this.factoryInst = new UniswapV2Factory(
+      dexHelper,
+      dexKey,
+      factoryAddress,
+      this.logger,
+      this.onPoolCreatedDeleteFromNonExistingSet,
+    );
+  }
+
+  async initializePricing(blockNumber: number) {
+    // Init listening to new pools creation
+    await this.factoryInst.initialize(blockNumber);
   }
 
   // getFeesMultiCallData should be override
@@ -374,14 +385,17 @@ export class UniswapV2
         ? [from, to]
         : [to, from];
 
-    const key = `${token0.address.toLowerCase()}-${token1.address.toLowerCase()}`;
+    const key = this.getPoolIdentifier(token0.address, token1.address);
     let pair = this.pairs[key];
     if (pair) return pair;
     const exchange = await this.factory.methods
       .getPair(token0.address, token1.address)
       .call();
     if (exchange === NULL_ADDRESS) {
-      pair = { token0, token1 };
+      // if the pool has been newly created to not allow this op as we can run into race condition between pool discovery and concurrent pricing request touching this pool
+      if (!this.newlyCreatedPoolKeys.has(key)) {
+        pair = { token0, token1 };
+      }
     } else {
       pair = { token0, token1, exchange };
     }
@@ -539,14 +553,6 @@ export class UniswapV2
     }
 
     return [this.getPoolIdentifier(from.address, to.address)];
-  }
-
-  getPoolIdentifier(srcToken: string, destToken: string) {
-    const tokenAddress = [srcToken, destToken]
-      .sort((a, b) => (a > b ? 1 : -1))
-      .join('_');
-
-    return `${this.dexKey}_${tokenAddress}`.toLowerCase();
   }
 
   async getPricesVolume(
@@ -1074,6 +1080,36 @@ export class UniswapV2
   static getDirectFunctionNameV6(): string[] {
     return this.directFunctionNameV6;
   }
+
+  private getPoolIdentifier(token0: string, token1: string) {
+    const [_token0, _token1] =
+      token0.toLowerCase() < token1.toLowerCase()
+        ? [token0, token1]
+        : [token1, token0];
+
+    return `${this.dexKey}_${_token0}_${_token1}`.toLowerCase();
+  }
+
+  private onPoolCreatedDeleteFromNonExistingSet: OnPoolCreatedCallback =
+    async ({ token0, token1 }) => {
+      const logPrefix = '[onPoolCreatedDeleteFromNonExistingSet]';
+
+      try {
+        const poolKey = this.getPoolIdentifier(token0, token1);
+
+        this.newlyCreatedPoolKeys.add(poolKey);
+
+        // delete entry locally to let local instance discover the pool
+        delete this.pairs[poolKey];
+
+        this.logger.info(`${logPrefix} discovered new pool ${poolKey}`);
+      } catch (e) {
+        this.logger.error(
+          `${logPrefix} LOGIC ERROR on ack new pool (token0=${token0},token1=${token1})`,
+          e,
+        );
+      }
+    };
 
   // univ2 always had 1 pool per pair
   private _encodePathV6(

@@ -96,5 +96,33 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
         },
       ],
     },
+    [Network.AVALANCHE]: {
+      vaultAddress: '0xbA1333333333a1BA1108E8412f11850A5C319bA9',
+      apiNetworkName: 'AVALANCHE',
+      balancerRouterAddress: '0xF39CA6ede9BF7820a952b52f3c94af526bAB9015',
+      balancerBatchRouterAddress: '0xc9b36096f5201ea332Db35d6D195774ea0D5988f',
+      hooks: [
+        {
+          type: 'StableSurge',
+          apiName: 'STABLE_SURGE',
+          factory: '0x18CC3C68A5e64b40c846Aa6E45312cbcBb94f71b', // Pools with StableSurge hook will always be deployed from this factory
+          address: '0x86705ee19c0509ff68f1118c55ee2ebde383d122', // Address of the hook that will be used by pools
+        },
+      ],
+    },
+    [Network.OPTIMISM]: {
+      vaultAddress: '0xbA1333333333a1BA1108E8412f11850A5C319bA9',
+      apiNetworkName: 'OPTIMISM',
+      balancerRouterAddress: '0xe2fa4e1d17725e72dcdAfe943Ecf45dF4B9E285b',
+      balancerBatchRouterAddress: '0xaD89051bEd8d96f045E8912aE1672c6C0bF8a85E',
+      hooks: [
+        {
+          type: 'StableSurge',
+          apiName: 'STABLE_SURGE',
+          factory: '0x3BEb058DE1A25dd24223fd9e1796df8589429AcE', // Pools with StableSurge hook will always be deployed from this factory
+          address: '0xF39CA6ede9BF7820a952b52f3c94af526bAB9015', // Address of the hook that will be used by pools
+        },
+      ],
+    },
   },
 };
