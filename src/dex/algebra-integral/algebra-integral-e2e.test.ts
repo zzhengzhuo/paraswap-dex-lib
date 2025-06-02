@@ -109,12 +109,13 @@ function testForNetwork(
   });
 }
 
-describe('Algebra', () => {
-  describe('QuickSwapE2E', () => {
-    const dexKey = 'QuickSwap';
+describe('AlgebraIntegral E2E', () => {
+  const dexKey = 'AlgebraIntegral';
+
+  describe('Polygon', () => {
     const network = Network.POLYGON;
 
-    describe('Polygon_V6: Non-Tax tokens', () => {
+    describe('USDCn -> WMATIC', () => {
       const tokenASymbol: string = 'USDCn';
       const tokenBSymbol: string = 'WMATIC';
 
@@ -133,7 +134,7 @@ describe('Algebra', () => {
       );
     });
 
-    describe('Polygon_V6: TaxTokens', () => {
+    describe('WOLF -> WMATIC', () => {
       const tokenASymbol: string = 'WOLF';
       const tokenBSymbol: string = 'WMATIC';
 
