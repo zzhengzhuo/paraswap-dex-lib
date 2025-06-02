@@ -1,5 +1,4 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { AsyncOrSync } from 'ts-essentials';
 import { AbiItem } from 'web3-utils';
 import { pack } from '@ethersproject/solidity';
 import _ from 'lodash';
@@ -9,7 +8,6 @@ import {
   ExchangePrices,
   PoolPrices,
   AdapterExchangeParam,
-  SimpleExchangeParam,
   PoolLiquidity,
   TransferFeeParams,
   Logger,
@@ -90,11 +88,12 @@ export class AlgebraIntegral
     );
 
     this.factory = new AlgebraIntegralFactory(
-      dexHelper,
       dexKey,
-      this.config.factory,
-      this.config,
+      this.network,
+      dexHelper,
       this.logger,
+      this.config.factory,
+      this.config.subgraphURL,
     );
   }
 
@@ -166,101 +165,81 @@ export class AlgebraIntegral
     }
     this.logger.warn(`fallback to rpc for ${pools.length} pool(s)`);
 
-    const requests = pools.map<BalanceRequest>(
-      pool => ({
-        owner: pool.poolAddress,
-        asset: side == SwapSide.SELL ? from.address : to.address,
-        assetType: AssetType.ERC20,
-        ids: [
-          {
-            id: DEFAULT_ID_ERC20,
-            spenders: [],
-          },
-        ],
-      }),
-      [],
-    );
+    const requests = pools.map<BalanceRequest>(pool => ({
+      owner: pool.poolAddress,
+      asset: side === SwapSide.SELL ? from.address : to.address,
+      assetType: AssetType.ERC20,
+      ids: [
+        {
+          id: DEFAULT_ID_ERC20,
+          spenders: [],
+        },
+      ],
+    }));
 
     const balances = await getBalances(this.dexHelper.multiWrapper, requests);
-
-    pools = pools.filter((pool, index) => {
-      const balance = balances[index].amounts[DEFAULT_ID_ERC20_AS_STRING];
-      if (balance >= amounts[amounts.length - 1]) {
-        return true;
-      }
-      this.logger.warn(
-        `[${this.network}] have no balance ${pool.poolAddress} ${from.address} ${to.address}. (Balance: ${balance})`,
-      );
-      return false;
-    });
-
-    pools.forEach(pool => {
-      this.logger.warn(
-        `[${this.network}] fallback to rpc for ${pool.poolAddress} ${from.address} ${to.address}`,
-      );
-    });
 
     const _isSrcTokenTransferFeeToBeExchanged =
       isSrcTokenTransferFeeToBeExchanged(transferFees);
     const _isDestTokenTransferFeeToBeExchanged =
       isDestTokenTransferFeeToBeExchanged(transferFees);
 
-    if (_isSrcTokenTransferFeeToBeExchanged && side == SwapSide.BUY) {
-      this.logger.error(
-        `DEX doesn't support buy for tax srcToken ${from.address}`,
-      );
-      return null;
-    }
-
     const unitVolume = getBigIntPow(
       (side === SwapSide.SELL ? from : to).decimals,
     );
 
     const chunks = amounts.length - 1;
-
     const _width = Math.floor(chunks / this.config.chunksCount);
-
-    const _amounts = [unitVolume].concat(
+    const chunkedAmounts = [unitVolume].concat(
       Array.from(Array(this.config.chunksCount).keys()).map(
         i => amounts[(i + 1) * _width],
       ),
     );
 
-    const _amountsWithFee = _isSrcTokenTransferFeeToBeExchanged
-      ? applyTransferFee(
-          _amounts,
-          side,
-          transferFees.srcDexFee,
-          SRC_TOKEN_DEX_TRANSFERS,
-        )
-      : _amounts;
+    const availableAmountsPerPool = pools.map((pool, index) => {
+      const balance = balances[index].amounts[DEFAULT_ID_ERC20_AS_STRING];
+      return chunkedAmounts.map(amount => (balance >= amount ? amount : 0n));
+    });
 
-    const calldata = pools.map(pool =>
-      _amountsWithFee.map(_amount => ({
-        target: this.config.quoter,
-        gasLimit: ALGEBRA_QUOTE_GASLIMIT,
-        callData:
-          side === SwapSide.SELL
-            ? this.quoterIface.encodeFunctionData('quoteExactInputSingle', [
-                from.address,
-                to.address,
-                pool.deployer,
-                _amount.toString(),
-                0, //sqrtPriceLimitX96
-              ])
-            : this.quoterIface.encodeFunctionData('quoteExactOutputSingle', [
-                from.address,
-                to.address,
-                pool.deployer,
-                _amount.toString(),
-                0, //sqrtPriceLimitX96
-              ]),
-      })),
+    const amountsWithFeePerPool = availableAmountsPerPool.map(poolAmounts =>
+      _isSrcTokenTransferFeeToBeExchanged
+        ? applyTransferFee(
+            poolAmounts,
+            side,
+            transferFees.srcDexFee,
+            SRC_TOKEN_DEX_TRANSFERS,
+          )
+        : poolAmounts,
     );
 
-    const data = await this.uniswapMulti.methods
-      .multicall(calldata.flat())
-      .call();
+    const calldata = pools.flatMap((pool, poolIndex) => {
+      const amountsForPool = amountsWithFeePerPool[poolIndex];
+
+      return amountsForPool
+        .filter(amount => amount !== 0n)
+        .map(amount => ({
+          target: this.config.quoter,
+          gasLimit: ALGEBRA_QUOTE_GASLIMIT,
+          callData:
+            side === SwapSide.SELL
+              ? this.quoterIface.encodeFunctionData('quoteExactInputSingle', [
+                  from.address,
+                  to.address,
+                  pool.deployer,
+                  amount.toString(),
+                  0,
+                ])
+              : this.quoterIface.encodeFunctionData('quoteExactOutputSingle', [
+                  from.address,
+                  to.address,
+                  pool.deployer,
+                  amount.toString(),
+                  0,
+                ]),
+        }));
+    });
+
+    const data = await this.uniswapMulti.methods.multicall(calldata).call();
 
     let totalGasCost = 0;
     let totalSuccessFullSwaps = 0;
@@ -282,8 +261,9 @@ export class AlgebraIntegral
       : Math.round(totalGasCost / totalSuccessFullSwaps);
 
     let i = 0;
-    const result = pools.map(pool => {
-      const _rates = _amountsWithFee.map(() => decode(i++));
+    const result = pools.map((pool, poolIndex) => {
+      const amountsForPool = amountsWithFeePerPool[poolIndex];
+      const _rates = amountsForPool.map(a => (a === 0n ? 0n : decode(i++)));
 
       const _ratesWithFee = _isDestTokenTransferFeeToBeExchanged
         ? applyTransferFee(
@@ -297,7 +277,7 @@ export class AlgebraIntegral
       const unit: bigint = _ratesWithFee[0];
 
       const prices = interpolate(
-        _amountsWithFee.slice(1),
+        chunkedAmounts.slice(1),
         _ratesWithFee.slice(1),
         amounts,
         side,
@@ -348,6 +328,13 @@ export class AlgebraIntegral
     },
   ): Promise<null | ExchangePrices<AlgebraIntegralData>> {
     try {
+      const _isSrcTokenTransferFeeToBeExchanged =
+        isSrcTokenTransferFeeToBeExchanged(transferFees);
+
+      if (_isSrcTokenTransferFeeToBeExchanged && side == SwapSide.BUY) {
+        return null;
+      }
+
       const _srcToken = this.dexHelper.config.wrapETH(srcToken);
       const _destToken = this.dexHelper.config.wrapETH(destToken);
 

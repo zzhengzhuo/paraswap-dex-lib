@@ -2,14 +2,11 @@ import { Interface } from '@ethersproject/abi';
 import { DeepReadonly } from 'ts-essentials';
 import FactoryABI from '../../abi/algebra-integral/AlgebraFactory.abi.json';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import {
-  InitializeStateOptions,
-  StatefulEventSubscriber,
-} from '../../stateful-event-subscriber';
+import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { Address, Log, Logger } from '../../types';
 import { LogDescription } from 'ethers/lib/utils';
-import { FactoryState, Pool, DexParams } from './types';
-import { SUBGRAPH_TIMEOUT } from '../../constants';
+import { FactoryState, Pool } from './types';
+import { NULL_ADDRESS, SUBGRAPH_TIMEOUT } from '../../constants';
 
 /*
  * "Stateless" event subscriber in order to capture "PoolCreated" event on new pools created.
@@ -22,26 +19,18 @@ export class AlgebraIntegralFactory extends StatefulEventSubscriber<FactoryState
 
   logDecoder: (log: Log) => any;
 
-  public readonly factoryIface = new Interface(FactoryABI);
-
   private pools: Pool[] = [];
 
   constructor(
-    readonly dexHelper: IDexHelper,
-    parentName: string,
-    protected readonly factoryAddress: Address,
-    protected readonly config: DexParams,
+    readonly parentName: string,
+    protected network: number,
+    protected dexHelper: IDexHelper,
     logger: Logger,
-    mapKey: string = '',
+    protected factoryAddress: Address,
+    protected subgraphURL: string,
+    protected factoryIface = new Interface(FactoryABI),
   ) {
-    super(
-      parentName,
-      `${parentName} Factory`,
-      dexHelper,
-      logger,
-      false,
-      mapKey,
-    );
+    super(parentName, `${parentName} Factory`, dexHelper, logger, false);
 
     this.addressesSubscribed = [factoryAddress];
 
@@ -51,12 +40,8 @@ export class AlgebraIntegralFactory extends StatefulEventSubscriber<FactoryState
     this.handlers['CustomPool'] = this.handleNewCustomPool.bind(this);
   }
 
-  async initialize(
-    blockNumber: number,
-    options?: InitializeStateOptions<FactoryState>,
-  ) {
+  async initialize(blockNumber: number) {
     this.pools = await this.queryAllAvailablePools(blockNumber);
-    return super.initialize(blockNumber, options);
   }
 
   generateState(): FactoryState {
@@ -170,7 +155,7 @@ export class AlgebraIntegralFactory extends StatefulEventSubscriber<FactoryState
       };
       errors?: { message: string }[];
     }>(
-      this.config.subgraphURL,
+      this.subgraphURL,
       {
         query: poolsQuery,
         variables: {
@@ -196,6 +181,7 @@ export class AlgebraIntegralFactory extends StatefulEventSubscriber<FactoryState
         throw new Error(res.errors[0].message);
       }
     }
+
     return res.data.pools.map(pool => ({
       poolAddress: pool.id.toLowerCase(),
       token0: pool.token0.id.toLowerCase(),
@@ -208,8 +194,8 @@ export class AlgebraIntegralFactory extends StatefulEventSubscriber<FactoryState
   async handleNewPool(event: LogDescription) {
     const token0 = event.args.token0.toLowerCase();
     const token1 = event.args.token1.toLowerCase();
-    // Regular pools have zero address as deployer
-    const deployer = '0x0000000000000000000000000000000000000000';
+    const deployer = NULL_ADDRESS; // Regular pools have zero address as deployer
+
     const poolAddress = event.args.pool?.toLowerCase() || '';
     if (poolAddress) {
       this.pools.push({
