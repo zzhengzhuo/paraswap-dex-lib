@@ -38,7 +38,7 @@ const WRITE_BATCH_SIZE = 1_000;
 const READ_BATCH_SIZE = 10_000;
 // pool is valid if last update was less than 180 days ago, otherwise pool is considered stale and will not be used on pt
 const VALID_POOLS_AGE = 1000 * 60 * 60 * 24 * 180; // 180 days
-const MAX_RESERVES_POOLS_UPDATE = 5_000;
+const MAX_RESERVES_POOLS_UPDATE = 2_000;
 
 const FactoryABI = [
   {
