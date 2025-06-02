@@ -786,26 +786,20 @@ export class GenericSwapTransactionBuilder {
       const swapExchangeParams: DexExchangeParamWithBooleanNeedWrapNative[] =
         [];
 
-      let hasEthWeth = false;
-
       route.swaps.forEach(swap => {
         swap.swapExchanges.forEach(se => {
           const curExchangeParam = exchangeParams[currentExchangeParamIndex];
           currentExchangeParamIndex++;
-          swapExchangeParams.push(curExchangeParam);
+          if (
+            swap.destToken.toLowerCase() === weth ||
+            swap.destToken.toLowerCase() === eth ||
+            swap.srcToken.toLowerCase() === weth ||
+            swap.srcToken.toLowerCase() === eth
+          ) {
+            swapExchangeParams.push(curExchangeParam);
+          }
         });
-
-        if (
-          swap.destToken.toLowerCase() === weth ||
-          swap.destToken.toLowerCase() === eth
-        ) {
-          hasEthWeth = true;
-        }
       });
-
-      if (!hasEthWeth) {
-        return true;
-      }
 
       return (
         swapExchangeParams.every(p => p.needWrapNative === true) ||
