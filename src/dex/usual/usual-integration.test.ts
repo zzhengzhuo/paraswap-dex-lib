@@ -4,7 +4,12 @@ dotenv.config();
 
 import { Interface } from '@ethersproject/abi';
 import { DummyDexHelper } from '../../dex-helper/index';
-import { Network, SwapSide } from '../../constants';
+import {
+  Network,
+  NO_USD_LIQUIDITY,
+  SwapSide,
+  UNLIMITED_USD_LIQUIDITY,
+} from '../../constants';
 import { BI_POWS } from '../../bigint-constants';
 import {
   checkPoolPrices,
@@ -201,21 +206,31 @@ describe('WrappedM<>UsualM', function () {
       );
     });
 
-    it('getTopPoolsForToken: WrappedM', async function () {
+    it.only('getTopPoolsForToken: WrappedM', async function () {
       const tokenA = Tokens[network]['WrappedM'];
+      const tokenB = Tokens[network]['UsualM'];
       const dexHelper = new DummyDexHelper(network);
       const usualMWrappedM = new UsualMWrappedM(network, dexKey, dexHelper);
 
-      const poolLiquidity = await usualMWrappedM.getTopPoolsForToken(
+      const poolLiquidityA = await usualMWrappedM.getTopPoolsForToken(
         tokenA.address,
+        10,
+      );
+
+      const poolLiquidityB = await usualMWrappedM.getTopPoolsForToken(
+        tokenB.address,
         10,
       );
       console.log(
         `${tokenA.symbol} Top Pools:`,
-        JSON.stringify(poolLiquidity, null, 2),
+        JSON.stringify(poolLiquidityA, null, 2),
       );
 
-      checkPoolsLiquidity(poolLiquidity, tokenA.address, dexKey);
+      // swap is available only from WrappedM to UsualM
+      expect(poolLiquidityA[0].liquidityUSD).toBe(UNLIMITED_USD_LIQUIDITY);
+      expect(poolLiquidityB[0].liquidityUSD).toBe(NO_USD_LIQUIDITY);
+
+      checkPoolsLiquidity(poolLiquidityA, tokenA.address, dexKey);
     });
 
     it('getTopPoolsForToken: UsualM', async function () {
