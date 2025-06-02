@@ -127,7 +127,10 @@ export class Nerve
     const poolIdentifier = Nerve.getIdentifier(this.dexKey, poolConfig.address);
 
     if (this.eventPools[poolIdentifier]) {
-      await this.eventPools[poolIdentifier].generateState(blockNumber);
+      const state = await this.eventPools[poolIdentifier].generateState(
+        blockNumber,
+      );
+      this.eventPools[poolIdentifier].setState(state, blockNumber);
     } else {
       await this.setupEventPool(poolConfig, blockNumber, false);
     }
