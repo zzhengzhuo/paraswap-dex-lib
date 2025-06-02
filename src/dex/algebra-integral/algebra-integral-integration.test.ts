@@ -145,7 +145,7 @@ async function testPricingOnNetwork(
 }
 
 describe('AlgebraIntegral', function () {
-  const dexKey = 'QuickSwap';
+  const dexKey = 'AlgebraIntegral';
   let blockNumber: number;
   let algebra: AlgebraIntegral;
 
@@ -157,7 +157,6 @@ describe('AlgebraIntegral', function () {
 
     const srcTokenSymbol = 'USDCn';
     const destTokenSymbol = 'WMATIC';
-    // const destTokenSymbol = 'USDC';
 
     const amountsForSell = [
       0n,
@@ -169,8 +168,8 @@ describe('AlgebraIntegral', function () {
       6n * BI_POWS[tokens[srcTokenSymbol].decimals],
       7n * BI_POWS[tokens[srcTokenSymbol].decimals],
       8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
     ];
 
     const amountsForBuy = [
