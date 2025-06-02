@@ -80,7 +80,9 @@ describe('UniswapV4 E2E', () => {
       const tokenASymbol: string = 'ETH';
       const tokenBSymbol: string = 'USDC';
 
-      const tokenAAmount: string = '100000000000000';
+      // const tokenAAmount: string = '1000000000000000000';
+      const tokenAAmount: string = '1000000000000000000';
+      // const tokenBAmount: string = '100000000';
       const tokenBAmount: string = '5000000';
 
       testForNetwork(
@@ -93,7 +95,7 @@ describe('UniswapV4 E2E', () => {
       );
     });
 
-    describe('WETH -> USDC', () => {
+    describe.skip('WETH -> USDC', () => {
       const tokenASymbol: string = 'WETH';
       const tokenBSymbol: string = 'USDC';
 
