@@ -136,9 +136,17 @@ export class SolidlyRpcPoolTracker extends Solidly {
   ): Promise<PoolLiquidity[]> {
     const token = tokenAddress.toLowerCase();
 
-    let pools = this.pools.filter(
-      pool => pool.token0.address === token || pool.token1.address === token,
-    );
+    let pools = this.pools
+      .filter(
+        pool => pool.token0.address === token || pool.token1.address === token,
+      )
+      .sort((a, b) => {
+        const aReserve = token === a.token0.address ? a.reserve0 : a.reserve1;
+        const bReserve = token === b.token0.address ? b.reserve0 : b.reserve1;
+
+        return Number(bReserve - aReserve);
+      })
+      .slice(0, limit);
 
     if (pools.length === 0) {
       return [];
@@ -257,7 +265,7 @@ export class SolidlyRpcPoolTracker extends Solidly {
 
     const pools = await this.dexHelper.multiWrapper.tryAggregate<
       string | [bigint, bigint, number]
-    >(true, poolsCalldata);
+    >(false, poolsCalldata);
 
     this.pools = [];
 
@@ -283,13 +291,13 @@ export class SolidlyRpcPoolTracker extends Solidly {
 
     const decimalsResults =
       await this.dexHelper.multiWrapper.tryAggregate<number>(
-        true,
+        false,
         decimalsCalldata,
       );
 
     const decimals = decimalsResults.reduce((acc, result, index) => {
       const token = tokens[index];
-      acc[token] = result.returnData;
+      acc[token] = result.returnData ?? 18;
       return acc;
     }, {} as Record<string, number>);
 
@@ -297,11 +305,11 @@ export class SolidlyRpcPoolTracker extends Solidly {
       const poolAddress = allPoolsResults[i].returnData.toLowerCase();
       const token0 = (pools[i * 3].returnData as string).toLowerCase();
       const token1 = (pools[i * 3 + 1].returnData as string).toLowerCase();
-      const [reserve0, reserve1] = pools[i * 3 + 2].returnData as [
-        bigint,
-        bigint,
-        number,
-      ];
+      const [reserve0, reserve1] = (pools[i * 3 + 2]?.returnData ?? [
+        0n,
+        0n,
+        0,
+      ]) as [bigint, bigint, number];
 
       this.pools.push({
         address: poolAddress,
@@ -339,12 +347,12 @@ export class SolidlyRpcPoolTracker extends Solidly {
 
     const results = await this.dexHelper.multiWrapper.tryAggregate<
       [bigint, bigint, number]
-    >(true, callData);
+    >(false, callData);
 
     const _pools: Pool[] = [];
 
     for (let i = 0; i < pools.length; i++) {
-      const [reserve0, reserve1] = results[i].returnData as [
+      const [reserve0, reserve1] = (results[i].returnData ?? [0n, 0n, 0]) as [
         bigint,
         bigint,
         number,
