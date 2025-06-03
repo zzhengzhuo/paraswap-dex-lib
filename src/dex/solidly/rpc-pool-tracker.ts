@@ -67,17 +67,17 @@ const SolidlyFactoryABI = [
     name: 'getReserves',
     outputs: [
       {
-        internalType: 'uint112',
+        internalType: 'uint256',
         name: '_reserve0',
         type: 'uint256',
       },
       {
-        internalType: 'uint112',
+        internalType: 'uint256',
         name: '_reserve1',
         type: 'uint256',
       },
       {
-        internalType: 'uint32',
+        internalType: 'uint256',
         name: '_blockTimestampLast',
         type: 'uint256',
       },
