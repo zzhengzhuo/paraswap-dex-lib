@@ -141,7 +141,7 @@ const Dexes = [
   UniswapV3,
   UniswapV4,
   Algebra,
-  // PancakeSwapV2,
+  PancakeSwapV2,
   PancakeswapV3,
   VelodromeSlipstream,
   BiSwap,
