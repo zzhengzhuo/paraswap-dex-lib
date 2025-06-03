@@ -591,8 +591,8 @@ export class UniswapV2RpcPoolTracker extends UniswapV2 {
     pools = pools
       .sort((a, b) => {
         const aReserve = token === a.token0Address ? a.reserve0 : a.reserve1;
-
         const bReserve = token === b.token0Address ? b.reserve0 : b.reserve1;
+
         return Number(bReserve - aReserve);
       })
       .slice(0, limit);
