@@ -152,6 +152,7 @@ export class SolidlyRpcPoolTracker extends Solidly {
       return [];
     }
 
+    // reserves are updated in `updatePoolState` regularly, so no need to update them each time here
     // pools = await this.updatePoolsReserves(pools.map(pool => pool.address));
 
     const tokensAmounts = pools
