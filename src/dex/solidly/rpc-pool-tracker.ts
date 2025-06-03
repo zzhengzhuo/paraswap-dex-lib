@@ -3,12 +3,13 @@ import { Network } from '../../constants';
 import { IDexHelper } from '../../dex-helper';
 import {
   addressDecode,
-  uint256ToBigInt,
   uint256DecodeToNumber,
+  generalDecoder,
 } from '../../lib/decoders';
-import { MultiCallParams } from '../../lib/multi-wrapper';
+import { MultiCallParams, MultiResult } from '../../lib/multi-wrapper';
 import { Address, PoolLiquidity, Token } from '../../types';
 import { Solidly } from './solidly';
+import { BytesLike } from 'ethers';
 
 type Pool = {
   address: Address;
@@ -60,6 +61,31 @@ const SolidlyFactoryABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    constant: true,
+    inputs: [],
+    name: 'getReserves',
+    outputs: [
+      {
+        internalType: 'uint112',
+        name: '_reserve0',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint112',
+        name: '_reserve1',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint32',
+        name: '_blockTimestampLast',
+        type: 'uint256',
+      },
+    ],
+    payable: false,
+    stateMutability: 'view',
+    type: 'function',
+  },
 ];
 
 const solidlyFactoryIface = new Interface(SolidlyFactoryABI);
@@ -93,11 +119,21 @@ export class SolidlyRpcPoolTracker extends Solidly {
     return undefined;
   }
 
+  async updatePoolState() {
+    this.logger.info(
+      `Started updating pools for ${this.dexKey} on ${this.network} network`,
+    );
+    await this.updatePools();
+    await this.updatePoolsReserves(this.pools);
+    this.logger.info(
+      `Finished updating pools for ${this.dexKey} on ${this.network} network`,
+    );
+  }
+
   async getTopPoolsForToken(
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    await this.updatePools();
     const token = tokenAddress.toLowerCase();
 
     let pools = this.pools.filter(
@@ -108,7 +144,7 @@ export class SolidlyRpcPoolTracker extends Solidly {
       return [];
     }
 
-    pools = await this.updatePoolsReserves(pools.map(pool => pool.address));
+    // pools = await this.updatePoolsReserves(pools.map(pool => pool.address));
 
     const tokensAmounts = pools
       .map(pool => {
@@ -189,7 +225,8 @@ export class SolidlyRpcPoolTracker extends Solidly {
         allPoolsCallData,
       );
 
-    const poolsCalldata: MultiCallParams<string | bigint>[] = [];
+    const poolsCalldata: MultiCallParams<string | [bigint, bigint, number]>[] =
+      [];
 
     for (const poolResult of allPoolsResults) {
       poolsCalldata.push(
@@ -205,27 +242,29 @@ export class SolidlyRpcPoolTracker extends Solidly {
         },
         {
           target: poolResult.returnData,
-          callData: solidlyFactoryIface.encodeFunctionData('reserve0', []),
-          decodeFunction: uint256ToBigInt,
-        },
-        {
-          target: poolResult.returnData,
-          callData: solidlyFactoryIface.encodeFunctionData('reserve1', []),
-          decodeFunction: uint256ToBigInt,
+          callData: solidlyFactoryIface.encodeFunctionData('getReserves', []),
+          decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+            return generalDecoder(
+              result,
+              ['uint256', 'uint256', 'uint256'],
+              [0n, 0n, 0],
+              res => [BigInt(res[0]), BigInt(res[1]), Number(res[2])],
+            );
+          },
         },
       );
     }
 
     const pools = await this.dexHelper.multiWrapper.tryAggregate<
-      string | bigint
+      string | [bigint, bigint, number]
     >(true, poolsCalldata);
 
     this.pools = [];
 
     const tokensSet = new Set<string>();
     for (let i = 0; i < allPoolsResults.length; i++) {
-      const token0 = (pools[i * 4].returnData as string).toLowerCase();
-      const token1 = (pools[i * 4 + 1].returnData as string).toLowerCase();
+      const token0 = (pools[i * 3].returnData as string).toLowerCase();
+      const token1 = (pools[i * 3 + 1].returnData as string).toLowerCase();
 
       tokensSet.add(token0.toLowerCase());
       tokensSet.add(token1.toLowerCase());
@@ -256,10 +295,13 @@ export class SolidlyRpcPoolTracker extends Solidly {
 
     for (let i = 0; i < allPoolsResults.length; i++) {
       const poolAddress = allPoolsResults[i].returnData.toLowerCase();
-      const token0 = (pools[i * 4].returnData as string).toLowerCase();
-      const token1 = (pools[i * 4 + 1].returnData as string).toLowerCase();
-      const reserve0 = pools[i * 4 + 2].returnData as bigint;
-      const reserve1 = pools[i * 4 + 3].returnData as bigint;
+      const token0 = (pools[i * 3].returnData as string).toLowerCase();
+      const token1 = (pools[i * 3 + 1].returnData as string).toLowerCase();
+      const [reserve0, reserve1] = pools[i * 3 + 2].returnData as [
+        bigint,
+        bigint,
+        number,
+      ];
 
       this.pools.push({
         address: poolAddress,
@@ -277,42 +319,39 @@ export class SolidlyRpcPoolTracker extends Solidly {
     }
   }
 
-  async updatePoolsReserves(pools: string[]): Promise<Pool[]> {
-    const callData: MultiCallParams<string | bigint>[] = [];
+  async updatePoolsReserves(pools: Pool[]): Promise<Pool[]> {
+    const callData: MultiCallParams<[bigint, bigint, number]>[] = [];
 
     for (const pool of pools) {
-      callData.push(
-        {
-          target: pool,
-          callData: solidlyFactoryIface.encodeFunctionData('reserve0', []),
-          decodeFunction: uint256ToBigInt,
+      callData.push({
+        target: pool.address,
+        callData: solidlyFactoryIface.encodeFunctionData('getReserves', []),
+        decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+          return generalDecoder(
+            result,
+            ['uint256', 'uint256', 'uint256'],
+            [0n, 0n, 0],
+            res => [BigInt(res[0]), BigInt(res[1]), Number(res[2])],
+          );
         },
-        {
-          target: pool,
-          callData: solidlyFactoryIface.encodeFunctionData('reserve1', []),
-          decodeFunction: uint256ToBigInt,
-        },
-      );
+      });
     }
 
     const results = await this.dexHelper.multiWrapper.tryAggregate<
-      string | bigint
+      [bigint, bigint, number]
     >(true, callData);
 
     const _pools: Pool[] = [];
 
     for (let i = 0; i < pools.length; i++) {
-      const reserve0 = results[i * 2].returnData as bigint;
-      const reserve1 = results[i * 2 + 1].returnData as bigint;
+      const [reserve0, reserve1] = results[i].returnData as [
+        bigint,
+        bigint,
+        number,
+      ];
 
-      const poolIndex = this.pools.findIndex(pool => pool.address === pools[i]);
-
-      if (poolIndex !== -1) {
-        this.pools[poolIndex].reserve0 = reserve0;
-        this.pools[poolIndex].reserve1 = reserve1;
-
-        _pools.push(this.pools[poolIndex]);
-      }
+      pools[i].reserve0 = reserve0;
+      pools[i].reserve1 = reserve1;
     }
 
     return _pools;
