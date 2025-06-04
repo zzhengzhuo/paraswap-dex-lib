@@ -791,12 +791,12 @@ export class UniswapV3
           );
           const getOutputsFinish = Date.now();
 
-          const poolKey = `${pool.token0}_${pool.token1}_${
+          const poolKey = `${srcToken.address}_${destToken.address}_${
             pool.feeCodeAsString
           }_${pool.tickSpacing ?? ''}`;
 
-          const iterationStats = Object.entries(iterationCount).reduce(
-            (acc, [key, value], index) => {
+          const iterationStats = Object.values(iterationCount).reduce(
+            (acc, value, index, array) => {
               if (value > acc.max) {
                 acc.max = value;
               }
@@ -805,10 +805,8 @@ export class UniswapV3
               }
               acc.avg += value;
 
-              if (index === Object.entries(iterationCount).length - 1) {
-                acc.avg = Math.round(
-                  acc.avg / Object.entries(iterationCount).length,
-                );
+              if (index === array.length - 1) {
+                acc.avg = Math.round(acc.avg / array.length);
               }
 
               return acc;
@@ -819,11 +817,9 @@ export class UniswapV3
           this.logger.info(
             `_getOutputs_${poolKey}_${reqId}: ${
               getOutputsFinish - getOutputsStart
-            } ms (src: ${srcToken.address}, dest: ${
-              destToken.address
-            }, amounts: ${JSON.stringify(
+            }ms, amounts: ${JSON.stringify(
               iterationCount,
-            )}, iterations: ${JSON.stringify(iterationStats)} side: ${side})`,
+            )}, iterations: ${JSON.stringify(iterationStats)} side: ${side}`,
           );
 
           if (!unitResult || !pricesResult) {
