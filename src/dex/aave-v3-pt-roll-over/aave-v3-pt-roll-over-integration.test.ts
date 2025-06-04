@@ -13,21 +13,6 @@ import { Token } from '../../types';
 import { IDexHelper } from '../../dex-helper/idex-helper';
 import { AaveV3PtRollOverData } from './types';
 
-/*
-  README
-  ======
-
-  This test script adds tests for AaveV3PtRollOver general integration
-  with the DEX interface. The test cases below are example tests.
-  It is recommended to add tests which cover AaveV3PtRollOver specific
-  logic.
-
-  You can run this individual test script by running:
-  `npx jest src/dex/<dex-name>/<dex-name>-integration.test.ts`
-
-  (This comment should be removed from the final implementation)
-*/
-
 import { Interface, Result } from '@ethersproject/abi';
 import { DummyDexHelper } from '../../dex-helper/dummy-dex-helper';
 import { Network, SwapSide } from '../../constants';
@@ -118,8 +103,6 @@ describe('AaveV3PtRollOver', function () {
 
     const tokens = Tokens[network];
 
-    // TODO: Put here token Symbol to check against
-    // Don't forget to update relevant tokens in constant-e2e.ts
     const srcTokenSymbol = 'PT-sUSDe-29MAY2025';
     const destTokenSymbol = 'PT-sUSDe-31JUL2025';
 
@@ -169,7 +152,7 @@ describe('AaveV3PtRollOver', function () {
         destTokenSymbol,
         SwapSide.SELL,
         amountsForSell,
-        '', // TODO: Put here proper function name to check pricing
+        'getPricesVolume',
       );
     });
 
