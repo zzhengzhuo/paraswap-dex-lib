@@ -92,7 +92,7 @@ export class BalancerV3EventPool extends StatefulEventSubscriber<PoolStateMap> {
         'function maxMint(address receiver) external view returns (uint256 maxShares)',
       ]),
       ['RECLAMM']: new Interface([
-        'function getReClammPoolDynamicData() external view returns (tuple(uint256[] balancesLiveScaled18, uint256[] tokenRates, uint256 staticSwapFeePercentage, uint256 totalSupply, uint256 lastTimestamp, uint256[] lastVirtualBalances, uint256 dailyPriceShiftBase, uint256 centerednessMargin, uint256 currentFourthRootPriceRatio, uint256 startFourthRootPriceRatio, uint256 endFourthRootPriceRatio, uint32 priceRatioUpdateStartTime, uint32 priceRatioUpdateEndTime, bool isPoolInitialized, bool isPoolPaused, bool isPoolInRecoveryMode) data)',
+        'function getReClammPoolDynamicData() external view returns (tuple(uint256[] balancesLiveScaled18, uint256[] tokenRates, uint256 staticSwapFeePercentage, uint256 totalSupply, uint256 lastTimestamp, uint256[] lastVirtualBalances, uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase, uint256 centerednessMargin, uint256 currentPriceRatio, uint256 currentFourthRootPriceRatio, uint256 startFourthRootPriceRatio, uint256 endFourthRootPriceRatio, uint32 priceRatioUpdateStartTime, uint32 priceRatioUpdateEndTime, bool isPoolInitialized, bool isPoolPaused, bool isPoolInRecoveryMode) data)',
       ]),
     };
 
