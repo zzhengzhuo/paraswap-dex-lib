@@ -647,6 +647,8 @@ export class UniswapV3
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<UniswapV3Data>> {
+    const reqId = Math.floor(Math.random() * 10000).toString();
+    const getPricesVolumeStart = Date.now();
     try {
       const _srcToken = this.dexHelper.config.wrapETH(srcToken);
       const _destToken = this.dexHelper.config.wrapETH(destToken);
@@ -769,19 +771,55 @@ export class UniswapV3
           const balanceDestToken =
             _destAddress === pool.token0 ? state.balance0 : state.balance1;
 
+          const iterationCount: Record<string, number> = {};
           const unitResult = this._getOutputs(
             state,
             [unitAmount],
             zeroForOne,
             side,
             balanceDestToken,
+            iterationCount,
           );
+          const getOutputsStart = Date.now();
           const pricesResult = this._getOutputs(
             state,
             _amounts,
             zeroForOne,
             side,
             balanceDestToken,
+            iterationCount,
+          );
+          const getOutputsFinish = Date.now();
+
+          const poolKey = `${srcToken.address}_${destToken.address}_${
+            pool.feeCodeAsString
+          }_${pool.tickSpacing ?? ''}`;
+
+          const iterationStats = Object.values(iterationCount).reduce(
+            (acc, value, index, array) => {
+              if (value > acc.max) {
+                acc.max = value;
+              }
+              if (value < acc.min) {
+                acc.min = value;
+              }
+              acc.avg += value;
+
+              if (index === array.length - 1) {
+                acc.avg = Math.round(acc.avg / array.length);
+              }
+
+              return acc;
+            },
+            { avg: 0, max: 0, min: Infinity },
+          );
+
+          this.logger.info(
+            `_getOutputs_${poolKey}_${reqId}: ${
+              getOutputsFinish - getOutputsStart
+            }ms, amounts: ${JSON.stringify(
+              iterationCount,
+            )}, iterations: ${JSON.stringify(iterationStats)} side: ${side}`,
           );
 
           if (!unitResult || !pricesResult) {
@@ -833,6 +871,12 @@ export class UniswapV3
           }
         });
       }
+
+      this.logger.info(
+        `getPricesVolume_${srcToken.address}_${destToken.address}_${amounts[
+          amounts.length - 1
+        ].toString()}_${reqId}: ${Date.now() - getPricesVolumeStart} ms`,
+      );
 
       return notNullResult;
     } catch (e) {
@@ -1443,6 +1487,7 @@ export class UniswapV3
     zeroForOne: boolean,
     side: SwapSide,
     destTokenBalance: bigint,
+    iterationCount: Record<string, number>,
   ): OutputResult | null {
     try {
       const outputsResult = uniswapV3Math.queryOutputs(
@@ -1450,6 +1495,7 @@ export class UniswapV3
         amounts,
         zeroForOne,
         side,
+        iterationCount,
       );
 
       if (side === SwapSide.SELL) {
