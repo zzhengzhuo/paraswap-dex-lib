@@ -32,7 +32,7 @@ export function getGasCost(steps: Step[]): number {
         return STABLE_GAS_COST;
       case 'BUFFER':
         return BUFFER_WRAP_UNWRAP_GAS_COST;
-      case 'GYROECLP':
+      case 'GYROE':
         return GYROECLP_GAS_COST;
       case 'RECLAMM':
         return RECLAMM_GAS_COST;
