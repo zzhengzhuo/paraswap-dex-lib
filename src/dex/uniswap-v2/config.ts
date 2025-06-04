@@ -156,6 +156,7 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
         '0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f',
       poolGasCost: 80 * 1000,
       feeCode: 30,
+      subgraphURL: '4jGhpKjW4prWoyt5Bwk1ZHUwdEmNWveJcjEyjoTZWCY9',
     },
     [Network.OPTIMISM]: {
       factoryAddress: '0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf',
@@ -346,6 +347,15 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
       feeCode: 30,
     },
   },
+  ArenaDexV2: {
+    [Network.AVALANCHE]: {
+      factoryAddress: '0xF16784dcAf838a3e16bEF7711a62D12413c39BD1',
+      initCode:
+        '0xe5982ea9aa099c260fbe1f626ddf304ecab74f9d85fb8c5277156486875ab7fe',
+      poolGasCost: 120 * 1000,
+      feeCode: 30,
+    },
+  },
   PancakeSwap: {
     [Network.BSC]: {
       factoryAddress: '0xBCfCcbde45cE874adCB698cC183deBcF17952812',
@@ -355,6 +365,7 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
       feeCode: 20,
     },
   },
+  // RPC Pool Tracker is used
   PancakeSwapV2: {
     [Network.BSC]: {
       // subgraphURL: 'AD7yfts4Uzeav8eXQ6yxZ64VXjzDrJ1b76Gvka2VSnhd',

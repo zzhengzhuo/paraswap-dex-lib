@@ -28,7 +28,7 @@ export const SETUP_RETRY_TIMEOUT = 20 * 1000; // 20s
 
 // TODO: Undo
 export const FETCH_POOL_IDENTIFIER_TIMEOUT = 100 * 1000; // 1s
-export const FETCH_POOL_PRICES_TIMEOUT = 5 * 1000; // 3s
+export const FETCH_POOL_PRICES_TIMEOUT = 3 * 1000; // 3s
 
 // How frequently logs wil be printed
 export const STATEFUL_EVENT_SUBSCRIBER_LOG_BATCH_PERIOD = 60 * 1000;
@@ -72,3 +72,7 @@ export const IS_CAP_SURPLUS_MASK = BigNumber.from('1').shl(92);
 export const IS_SKIP_BLACKLIST_MASK = BigNumber.from('1').shl(93);
 export const IS_REFERRAL_MASK = BigNumber.from('1').shl(94);
 export const IS_TAKE_SURPLUS_MASK = BigNumber.from('1').shl(95);
+
+// used for PoolTracker data
+export const NO_USD_LIQUIDITY = -1;
+export const UNLIMITED_USD_LIQUIDITY = 1234567890;

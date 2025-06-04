@@ -24,7 +24,9 @@ import { Interface } from '@ethersproject/abi';
 import { generalDecoder } from '../../lib/decoders';
 import { MultiResult } from '../../lib/multi-wrapper';
 import {
+  swapExactInputCalldata,
   swapExactInputSingleCalldata,
+  swapExactOutputCalldata,
   swapExactOutputSingleCalldata,
 } from './encoder';
 import { UniswapV4PoolManager } from './uniswap-v4-pool-manager';
@@ -112,7 +114,15 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       blockNumber,
     );
 
-    return pools.map(pool => pool.id);
+    const eventPools = (
+      await Promise.all(
+        pools.map(async pool =>
+          this.poolManager.getEventPool(pool.id, blockNumber),
+        ),
+      )
+    ).filter(pool => pool !== null);
+
+    return eventPools.map(eventPool => eventPool!.poolId);
   }
 
   protected _getOutputs(
@@ -121,6 +131,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     amounts: bigint[],
     zeroForOne: boolean,
     side: SwapSide,
+    reqId: number,
   ): bigint[] | null {
     try {
       const outputsResult = uniswapV4PoolMath.queryOutputs(
@@ -129,6 +140,8 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
         amounts,
         zeroForOne,
         side,
+        this.logger,
+        reqId,
       );
 
       if (
@@ -157,6 +170,9 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     blockNumber: number,
     limitPools?: string[],
   ): Promise<ExchangePrices<UniswapV4Data> | null> {
+    const reqId = Math.floor(Math.random() * 10000);
+    // const getPricesVolumeStart = Date.now();
+
     const pools: Pool[] = await this.poolManager.getAvailablePoolsForPair(
       from.address.toLowerCase(),
       to.address.toLowerCase(),
@@ -182,8 +198,24 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       const poolState = (await eventPool?.getState(blockNumber)) || null;
 
       let prices: bigint[] | null;
-      if (poolState) {
-        prices = this._getOutputs(pool, poolState, amounts, zeroForOne, side);
+      if (poolState !== null && poolState.isValid) {
+        // const getOutputsStart = Date.now();
+        prices = this._getOutputs(
+          pool,
+          poolState,
+          amounts,
+          zeroForOne,
+          side,
+          reqId,
+        );
+
+        // this.logger.info(
+        //   `_getOutputs_${pool.id}_${reqId}: ${
+        //     Date.now() - getOutputsStart
+        //   } ms (src: ${from.address}, dest: ${
+        //     to.address
+        //   }, amounts: ${JSON.stringify(amounts)})`,
+        // );
       } else {
         this.logger.warn(
           `${this.dexKey}-${this.network}: pool ${poolId} state was not found...falling back to rpc`,
@@ -209,12 +241,17 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
         unit: BI_POWS[to.decimals],
         prices,
         data: {
-          exchange: this.dexKey,
-          pool: {
-            id: pool.id,
-            key: pool.key,
-          },
-          zeroForOne,
+          path: [
+            {
+              pool: {
+                id: pool.id,
+                key: pool.key,
+              },
+              tokenIn: zeroForOne ? pool.key.currency0 : pool.key.currency1,
+              tokenOut: zeroForOne ? pool.key.currency1 : pool.key.currency0,
+              zeroForOne,
+            },
+          ],
         },
         poolAddresses: [this.poolManagerAddress],
         exchange: this.dexKey,
@@ -224,6 +261,11 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     });
 
     const prices = await Promise.all(pricesPromises);
+    // this.logger.info(
+    //   `getPricesVolume_${from.address}_${to.address}_${reqId}: ${
+    //     Date.now() - getPricesVolumeStart
+    //   } ms`,
+    // );
     return prices.filter(res => res !== null);
   }
 
@@ -348,26 +390,53 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     side: SwapSide,
   ): DexExchangeParam {
     let exchangeData: string;
-    if (side === SwapSide.SELL) {
-      exchangeData = swapExactInputSingleCalldata(
-        srcToken,
-        destToken,
-        data.pool.key,
-        data.zeroForOne,
-        BigInt(srcAmount),
-        // destMinAmount (can be 0 on dex level)
-        0n,
-        recipient,
-      );
+
+    if (data.path.length === 1) {
+      // Single hop
+      const path = data.path[0];
+      if (side === SwapSide.SELL) {
+        exchangeData = swapExactInputSingleCalldata(
+          srcToken,
+          destToken,
+          path.pool.key,
+          path.zeroForOne,
+          BigInt(srcAmount),
+          // destMinAmount (can be 0 on dex level)
+          0n,
+          recipient,
+        );
+      } else {
+        exchangeData = swapExactOutputSingleCalldata(
+          srcToken,
+          destToken,
+          path.pool.key,
+          path.zeroForOne,
+          BigInt(destAmount),
+          recipient,
+        );
+      }
     } else {
-      exchangeData = swapExactOutputSingleCalldata(
-        srcToken,
-        destToken,
-        data.pool.key,
-        data.zeroForOne,
-        BigInt(destAmount),
-        recipient,
-      );
+      // Multi-hop
+      exchangeData = '0x';
+
+      if (side === SwapSide.SELL) {
+        exchangeData = swapExactInputCalldata(
+          srcToken,
+          destToken,
+          data,
+          BigInt(srcAmount),
+          0n,
+          recipient,
+        );
+      } else {
+        exchangeData = swapExactOutputCalldata(
+          srcToken,
+          destToken,
+          data,
+          BigInt(destAmount),
+          recipient,
+        );
+      }
     }
 
     return {
@@ -389,12 +458,10 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     data: UniswapV4Data,
     side: SwapSide,
   ): AdapterExchangeParam {
-    const { exchange } = data;
-
-    const payload = '';
+    const payload = '0x';
 
     return {
-      targetExchange: exchange,
+      targetExchange: this.routerAddress,
       payload,
       networkFee: '0',
     };

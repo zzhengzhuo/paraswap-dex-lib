@@ -559,7 +559,8 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       return [];
     }
 
-    const pools: PoolLiquidity[] = [];
+    // address -> pool liquidity
+    const connectorPools: Record<string, PoolLiquidity> = {};
 
     for (const [pair, pairData] of Object.entries(prices)) {
       let liquidityUSD = 0;
@@ -607,8 +608,10 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         assert(token, 'Token not found');
         const address = token.address.toLowerCase();
 
-        if (pools.length === 0) {
-          pools.push({
+        if (connectorPools[address]) {
+          connectorPools[address].liquidityUSD += liquidityUSD;
+        } else {
+          connectorPools[address] = {
             exchange: this.dexKey,
             address: this.settlementAddress,
             connectorTokens: [
@@ -619,19 +622,12 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
               },
             ],
             liquidityUSD,
-          });
-        } else {
-          pools[0].liquidityUSD += liquidityUSD;
-          pools[0].connectorTokens.push({
-            address: address,
-            decimals: this.tokensMap[address].decimals,
-            symbol: this.tokensMap[address].ticker,
-          });
+          };
         }
       }
     }
 
-    return pools
+    return Object.values(connectorPools)
       .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
       .slice(0, limit);
   }
@@ -715,10 +711,13 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       buy_amounts: isBuy ? optimalSwapExchange.destAmount : undefined,
       taker_address: utils.getAddress(options.executionContractAddress),
       receiver_address: utils.getAddress(options.recipient),
+      origin_address: utils.getAddress(options.txOrigin),
       gasless: false,
       skip_validation: true,
       source: this.bebopAuthName,
     };
+
+    let quoteId: string | undefined;
 
     try {
       const response: BebopData = await this.dexHelper.httpRequest.get(
@@ -734,6 +733,8 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       if (!response) {
         throw new Error('Failed to get quote');
       }
+
+      quoteId = response.quoteId;
 
       if (
         !response.tx ||
@@ -796,7 +797,10 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         { deadline: BigInt(response.expiry) },
       ];
     } catch (e: any) {
-      const message = `${this.dexKey}-${this.network}: ${e}`;
+      const message = `${this.dexKey}-${this.network} ${
+        quoteId ? `quoteId: ${quoteId}` : ''
+      }: ${e}`;
+
       this.logger.error(message);
       if (!e?.isSlippageError) {
         this.restrict();
