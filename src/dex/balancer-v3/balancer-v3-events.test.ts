@@ -547,12 +547,16 @@ describe('BalancerV3 EventPool', function () {
     const eventsToTest: Record<Address, EventMappings> = {
       [BalancerV3Config.BalancerV3[network].vaultAddress]: {
         VaultAuxiliary: {
-          // VirtualBalancesUpdated & LastTimestampUpdated: 29614913, https://basescan.org/tx/0x23270e14f6f26bbc7240cfa21a75e617fbdc5ecdf059d7dd0146324c7bd87db9
-          // PriceRatioStateUpdated, DailyPriceShiftExponentUpdated, CenterednessMarginUpdated: 29447475, https://basescan.org/tx/0x6deafd6c3069d12086f87e7f666ece34a45cf52e82ca2d7d7806ee0e47f93d9e#eventlog
-          blockNumbers: [29614913, 29447475],
+          // 31048956: LastTimestampUpdated, CenterednessMarginUpdated, DailyPriceShiftExponentUpdated, PriceRatioStateUpdated, VirtualBalancesUpdated, https://basescan.org/tx/0x0089a058e988ef5ff9b6be42a622bd0a1fad678180c13d061a6a03cdced4f0a7
+          // 31094652: CenterednessMarginUpdated, LastTimestampUpdated, https://basescan.org/tx/0xbc3371bb0c995e7decdeb04aee2a829e424056aad63258fdeedc77de2ab64154
+          // 31094625: VirtualBalancesUpdated, https://basescan.org/tx/0x3d3b6e47728b6ec0a95422ee0a35dce43cbdef03b8ac65f6647d0178ba62a64c
+          // 31094562: PriceRatioStateUpdated, https://basescan.org/tx/0xe59aa545143e358279b784756f1984595a22adfc74616f612cb75e5cd6d18bbc
+          blockNumbers: [31048956, 31094652, 31094625, 31094562],
           poolAddress: [
-            '0xc46e6A1CB1910c916620Dc81C7fd8c38891E1904',
-            '0xc46e6A1CB1910c916620Dc81C7fd8c38891E1904',
+            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
+            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
+            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
+            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
           ],
         },
       },
