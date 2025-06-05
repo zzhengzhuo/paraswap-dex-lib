@@ -26,6 +26,7 @@ import ringV2ABI from '../../abi/ring-v2/ring-v2-pool.json';
 import ringV2factoryABI from '../../abi/ring-v2/ring-v2-factory.json';
 import RingV2ExchangeRouterABI from '../../abi/ring-v2/ring-v2-router.json';
 import ETHMainnetFewWrappedTokenJSON from '../../abi/ring-v2/few-wrapped-token.json';
+import { extractReturnAmountPosition } from '../../executor/utils';
 
 export enum RingV2Functions {
   swapExactTokensForTokens = 'swapExactTokensForTokens',
@@ -310,7 +311,8 @@ export class RingV2 extends UniswapV2 {
     data: UniswapData,
     side: SwapSide,
   ): DexExchangeParam {
-    let exchangeData: string;
+    let args: any[];
+    let functionName: RingV2Functions;
     let specialDexFlag: SpecialDex;
     let transferSrcTokenBeforeSwap: Address | undefined;
     let targetExchange: Address;
@@ -326,29 +328,26 @@ export class RingV2 extends UniswapV2 {
 
     if (isETHAddress(srcToken)) {
       if (side == SwapSide.SELL) {
-        exchangeData = this.exchangeRouterInterface.encodeFunctionData(
-          RingV2Functions.swapExactETHForTokens,
-          [destAmount, path, recipient, deadline],
-        );
+        functionName = RingV2Functions.swapExactETHForTokens;
+        args = [destAmount, path, recipient, deadline];
       } else {
-        exchangeData = this.exchangeRouterInterface.encodeFunctionData(
-          RingV2Functions.swapETHForExactTokens,
-          [srcAmount, path, recipient, deadline],
-        );
+        functionName = RingV2Functions.swapETHForExactTokens;
+        args = [srcAmount, path, recipient, deadline];
       }
     } else {
       if (side == SwapSide.SELL) {
-        exchangeData = this.exchangeRouterInterface.encodeFunctionData(
-          RingV2Functions.swapExactTokensForTokens,
-          [srcAmount, destAmount, path, recipient, deadline],
-        );
+        functionName = RingV2Functions.swapExactTokensForTokens;
+        args = [srcAmount, destAmount, path, recipient, deadline];
       } else {
-        exchangeData = this.exchangeRouterInterface.encodeFunctionData(
-          RingV2Functions.swapTokensForExactTokens,
-          [destAmount, srcAmount, path, recipient, deadline],
-        );
+        functionName = RingV2Functions.swapTokensForExactTokens;
+        args = [destAmount, srcAmount, path, recipient, deadline];
       }
     }
+
+    const exchangeData = this.exchangeRouterInterface.encodeFunctionData(
+      functionName,
+      args,
+    );
 
     specialDexFlag = SpecialDex.DEFAULT;
     targetExchange = data.router;
@@ -362,7 +361,11 @@ export class RingV2 extends UniswapV2 {
       targetExchange,
       specialDexFlag,
       transferSrcTokenBeforeSwap,
-      returnAmountPos: undefined,
+      returnAmountPos: extractReturnAmountPosition(
+        this.exchangeRouterInterface,
+        functionName,
+        'amounts',
+      ),
     };
   }
 }
