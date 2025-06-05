@@ -32,6 +32,7 @@ export async function runE2ETest(
   priceRoute: OptimalRate,
   senderAddress: string,
   contracts: ContractsAugustusV6,
+  overrideBalance: boolean = false,
 ) {
   // extract data from priceRoute
   const { network, srcToken, side, srcAmount } = priceRoute;
@@ -55,13 +56,16 @@ export async function runE2ETest(
   const amountToFund = BigInt(srcAmount) * 2n;
   // add allowance override to Augustus
   if (srcToken.toLowerCase() !== ETHER_ADDRESS) {
-    await tenderlySimulator.addTokenBalanceOverride(
-      stateOverride,
-      network,
-      srcToken,
-      senderAddress,
-      amountToFund,
-    );
+    if (overrideBalance) {
+      await tenderlySimulator.addTokenBalanceOverride(
+        stateOverride,
+        network,
+        srcToken,
+        senderAddress,
+        amountToFund,
+      );
+    }
+
     await tenderlySimulator.addAllowanceOverride(
       stateOverride,
       network,
