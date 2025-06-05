@@ -24,18 +24,22 @@ export function removeCircularStepPairs(steps: Step[]): Step[] {
   let i = 0;
 
   while (i < steps.length) {
+    const currentStep = steps[i];
+    const nextStep = steps[i + 1];
+
     // Check if current step and next step form a circular pair AND both are buffer steps
-    if (
-      i + 1 < steps.length &&
-      steps[i].swapInput.tokenIn === steps[i + 1].swapInput.tokenOut &&
-      steps[i].isBuffer === true &&
-      steps[i + 1].isBuffer === true
-    ) {
+    const isCircularPair =
+      nextStep !== undefined &&
+      currentStep.swapInput.tokenIn === nextStep.swapInput.tokenOut &&
+      currentStep.isBuffer &&
+      nextStep.isBuffer;
+
+    if (isCircularPair) {
       // Skip both steps (they cancel each other out)
       i += 2;
     } else {
       // Keep this step
-      result.push(steps[i]);
+      result.push(currentStep);
       i += 1;
     }
   }
