@@ -378,7 +378,6 @@ describe('e2e route step optimisation test', function () {
       route.priceRoute as OptimalRate,
       '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       contractAddresses,
-      true, // overrideBalance
     );
   });
 });
