@@ -39,7 +39,6 @@ export enum RingV2Functions {
 const RingV2Config: DexConfigMap<DexParams> = {
   RingV2: {
     [Network.MAINNET]: {
-      subgraphURL: '2f5DMnspUwMx2n3229koTsFrAZRua3YV69pucVzWmQA9',
       factoryAddress: '0xeb2A625B704d73e82946D8d026E1F588Eed06416',
       initCode:
         '0xa7ae6a5ec37f0c21bbdac560794258c4089b8ae3ffa6e3909b53c6091764a676',
