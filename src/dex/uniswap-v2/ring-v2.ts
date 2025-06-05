@@ -307,7 +307,7 @@ export class RingV2 extends UniswapV2 {
     srcAmount: NumberAsString,
     destAmount: NumberAsString,
     recipient: Address,
-    data: UniswapData,
+    data: UniswapV2Data,
     side: SwapSide,
   ): DexExchangeParam {
     let args: any[];
@@ -318,15 +318,12 @@ export class RingV2 extends UniswapV2 {
       Math.floor(new Date().getTime() / 1000) + ttl
     ).toString(16)}`;
 
-    const [from, to] = this.getTokenAddresses(srcToken, destToken);
-    let path: Address[] = [from.toLowerCase(), to.toLowerCase()];
-
     if (side == SwapSide.SELL) {
       functionName = RingV2Functions.swapExactTokensForTokens;
-      args = [srcAmount, destAmount, path, recipient, deadline];
+      args = [srcAmount, destAmount, data.path, recipient, deadline];
     } else {
       functionName = RingV2Functions.swapTokensForExactTokens;
-      args = [destAmount, srcAmount, path, recipient, deadline];
+      args = [destAmount, srcAmount, data.path, recipient, deadline];
     }
 
     const exchangeData = this.exchangeRouterInterface.encodeFunctionData(
@@ -345,6 +342,7 @@ export class RingV2 extends UniswapV2 {
         this.exchangeRouterInterface,
         functionName,
         'amounts',
+        1,
       ),
     };
   }
