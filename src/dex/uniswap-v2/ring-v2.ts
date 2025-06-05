@@ -19,7 +19,7 @@ import {
   NumberAsString,
   DexConfigMap,
 } from '../../types';
-import { getBigIntPow, getDexKeysWithNetwork, isETHAddress } from '../../utils';
+import { getBigIntPow, getDexKeysWithNetwork } from '../../utils';
 import { DexParams, UniswapData, UniswapV2Data } from './types';
 import { UniswapV2 } from './uniswap-v2';
 import ringV2ABI from '../../abi/ring-v2/ring-v2-pool.json';
@@ -322,22 +322,12 @@ export class RingV2 extends UniswapV2 {
     const [from, to] = this.getTokenAddresses(srcToken, destToken);
     let path: Address[] = [from.toLowerCase(), to.toLowerCase()];
 
-    if (isETHAddress(srcToken)) {
-      if (side == SwapSide.SELL) {
-        functionName = RingV2Functions.swapExactETHForTokens;
-        args = [destAmount, path, recipient, deadline];
-      } else {
-        functionName = RingV2Functions.swapETHForExactTokens;
-        args = [srcAmount, path, recipient, deadline];
-      }
+    if (side == SwapSide.SELL) {
+      functionName = RingV2Functions.swapExactTokensForTokens;
+      args = [srcAmount, destAmount, path, recipient, deadline];
     } else {
-      if (side == SwapSide.SELL) {
-        functionName = RingV2Functions.swapExactTokensForTokens;
-        args = [srcAmount, destAmount, path, recipient, deadline];
-      } else {
-        functionName = RingV2Functions.swapTokensForExactTokens;
-        args = [destAmount, srcAmount, path, recipient, deadline];
-      }
+      functionName = RingV2Functions.swapTokensForExactTokens;
+      args = [destAmount, srcAmount, path, recipient, deadline];
     }
 
     const exchangeData = this.exchangeRouterInterface.encodeFunctionData(
