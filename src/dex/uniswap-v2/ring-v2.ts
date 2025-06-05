@@ -313,10 +313,6 @@ export class RingV2 extends UniswapV2 {
   ): DexExchangeParam {
     let args: any[];
     let functionName: RingV2Functions;
-    let specialDexFlag: SpecialDex;
-    let transferSrcTokenBeforeSwap: Address | undefined;
-    let targetExchange: Address;
-    let dexFuncHasRecipient: boolean;
 
     let ttl = 1200;
     const deadline = `0x${(
@@ -349,18 +345,13 @@ export class RingV2 extends UniswapV2 {
       args,
     );
 
-    specialDexFlag = SpecialDex.DEFAULT;
-    targetExchange = data.router;
-    dexFuncHasRecipient = true;
-
     return {
       needWrapNative: this.needWrapNative,
       specialDexSupportsInsertFromAmount: true,
-      dexFuncHasRecipient,
+      dexFuncHasRecipient: true,
       exchangeData,
-      targetExchange,
-      specialDexFlag,
-      transferSrcTokenBeforeSwap,
+      targetExchange: data.router,
+      specialDexFlag: SpecialDex.DEFAULT,
       returnAmountPos: extractReturnAmountPosition(
         this.exchangeRouterInterface,
         functionName,
