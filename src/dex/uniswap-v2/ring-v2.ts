@@ -24,8 +24,7 @@ import { DexParams, UniswapV2Data } from './types';
 import { UniswapV2 } from './uniswap-v2';
 import uniswapV2ABI from '../../abi/uniswap-v2/uniswap-v2-pool.json';
 import uniswapV2factoryABI from '../../abi/uniswap-v2/uniswap-v2-factory.json';
-import RingV2ExchangeRouterABI from '../../abi/ring-v2/ring-v2-router.json';
-import ETHMainnetFewWrappedTokenJSON from '../../abi/ring-v2/few-wrapped-token.json';
+import RingV2ExchangeRouterABI from '../../abi/uniswap-v2/ring-v2-router.json';
 import { extractReturnAmountPosition } from '../../executor/utils';
 
 export enum RingV2Functions {
@@ -51,12 +50,13 @@ const RingV2Config: DexConfigMap<DexParams> = {
 
 const FewWrappedTokenConfig: DexConfigMap<{
   fewWrapFactory: string;
-  bytecode: string;
+  initCode: string;
 }> = {
   RingV2: {
     [Network.MAINNET]: {
       fewWrapFactory: '0x7D86394139bf1122E82FDF45Bb4e3b038A4464DD',
-      bytecode: ETHMainnetFewWrappedTokenJSON.bytecode,
+      initCode:
+        '0x2bdba5734ddf754fb149ef1faa937956c52cfd1f24d68163a95f42d08ec06d38',
     },
   },
 };
@@ -70,11 +70,12 @@ export function computeFWTokenAddress(
     ['address'],
     [originalAddress],
   );
+
   const create2Inputs = [
     '0xff',
     FewWrappedTokenConfig[dexKey][network].fewWrapFactory, // factory address
     keccak256(constructorArgumentsEncoded), // salt
-    keccak256(FewWrappedTokenConfig[dexKey][network].bytecode), // init code
+    FewWrappedTokenConfig[dexKey][network].initCode, // init code
   ];
 
   const input = `0x${create2Inputs.map(i => i.slice(2)).join('')}`;
