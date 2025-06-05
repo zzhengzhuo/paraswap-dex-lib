@@ -20,10 +20,10 @@ import {
   DexConfigMap,
 } from '../../types';
 import { getBigIntPow, getDexKeysWithNetwork } from '../../utils';
-import { DexParams, UniswapData, UniswapV2Data } from './types';
+import { DexParams, UniswapV2Data } from './types';
 import { UniswapV2 } from './uniswap-v2';
-import ringV2ABI from '../../abi/ring-v2/ring-v2-pool.json';
-import ringV2factoryABI from '../../abi/ring-v2/ring-v2-factory.json';
+import uniswapV2ABI from '../../abi/uniswap-v2/uniswap-v2-pool.json';
+import uniswapV2factoryABI from '../../abi/uniswap-v2/uniswap-v2-factory.json';
 import RingV2ExchangeRouterABI from '../../abi/ring-v2/ring-v2-router.json';
 import ETHMainnetFewWrappedTokenJSON from '../../abi/ring-v2/few-wrapped-token.json';
 import { extractReturnAmountPosition } from '../../executor/utils';
@@ -83,7 +83,7 @@ export function computeFWTokenAddress(
 }
 
 const DefaultRingV2PoolGasCost = 90 * 1000;
-const ringV2poolIface = new Interface(ringV2ABI);
+const ringV2poolIface = new Interface(uniswapV2ABI);
 
 export class RingV2 extends UniswapV2 {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
@@ -125,7 +125,7 @@ export class RingV2 extends UniswapV2 {
     );
 
     this.factory = new dexHelper.web3Provider.eth.Contract(
-      ringV2factoryABI as any,
+      uniswapV2factoryABI as any,
       this.factoryAddress,
     );
 
