@@ -28,6 +28,7 @@ import balancerBatchRouterAbi from '../../abi/balancer-v3/batch-router.json';
 import { getGasCost } from './getGasCost';
 import { Block } from '@ethersproject/abstract-provider';
 import { BalancerEventHook } from './hooks/balancer-hook-event-subscriber';
+import { removeCircularStepPairs } from './utils';
 
 const MAX_UINT256 =
   '115792089237316195423570985008687907853269984665640564039457584007913129639935';
@@ -420,16 +421,21 @@ export class BalancerV3 extends SimpleExchange implements IDex<BalancerV3Data> {
     data: BalancerV3Data,
     side: SwapSide,
   ): DexExchangeParam {
+    const steps = removeCircularStepPairs(data.steps);
+    if (steps.length === 0) {
+      this.logger.error(`${this.dexKey}: getDexParam: no steps`);
+    }
+
     if (side === SwapSide.SELL) {
-      return this.getExactInParam(srcToken, destToken, srcAmount, data);
+      return this.getExactInParam(srcToken, destToken, srcAmount, {
+        ...data,
+        steps,
+      });
     } else {
-      return this.getExactOutParam(
-        srcToken,
-        destToken,
-        srcAmount,
-        destAmount,
-        data,
-      );
+      return this.getExactOutParam(srcToken, destToken, srcAmount, destAmount, {
+        ...data,
+        steps,
+      });
     }
   }
 

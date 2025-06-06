@@ -110,6 +110,7 @@ import { UniswapV4 } from './uniswap-v4/uniswap-v4';
 import { PancakeSwapV2 } from './uniswap-v2/pancake-swap-v2';
 import { uniswapV4Merge } from './uniswap-v4/optimizer';
 import { AaveV3PtRollOver } from './aave-v3-pt-roll-over/aave-v3-pt-roll-over';
+import { RingV2 } from './uniswap-v2/ring-v2';
 
 const LegacyDexes = [
   CurveV2,
@@ -213,6 +214,7 @@ const Dexes = [
   UsualPP,
   Ekubo,
   AaveV3PtRollOver,
+  RingV2,
 ];
 
 export type LegacyDexConstructor = new (dexHelper: IDexHelper) => IDexTxBuilder<
