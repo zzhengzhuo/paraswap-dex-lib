@@ -136,7 +136,7 @@ export class SlippageCheckError extends Error {
       slippedPercentage: `${slippedPercentage}%`,
     };
 
-    super(JSON.stringify(errorDetails, null, 2));
+    super(JSON.stringify(errorDetails));
     this.name = 'SlippageCheckError';
   }
 }
