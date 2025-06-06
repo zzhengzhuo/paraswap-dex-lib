@@ -85,8 +85,19 @@ export class GenericSwapTransactionBuilder {
     srcAmountWeth: bigint,
     destAmountWeth: bigint,
     side: SwapSide,
+    priceRoute: OptimalRate,
+    exchangeParams: DexExchangeParamWithBooleanNeedWrapNative[],
   ) {
     if (srcAmountWeth === 0n && destAmountWeth === 0n) return;
+
+    if (
+      srcAmountWeth === destAmountWeth &&
+      !this.hasAnyRouteWithEthAndDifferentNeedWrapNative(
+        priceRoute,
+        exchangeParams,
+      )
+    )
+      return;
 
     return (
       this.dexAdapterService.getTxBuilderDexByKey(
@@ -194,6 +205,8 @@ export class GenericSwapTransactionBuilder {
       srcAmountWethToDeposit,
       destAmountWethToWithdraw,
       side,
+      priceRoute,
+      exchangeParams,
     );
 
     const buildExchangeParams = await this.addDexExchangeApproveParams(
@@ -757,5 +770,41 @@ export class GenericSwapTransactionBuilder {
     });
 
     return dexExchangeBuildParams;
+  }
+
+  private hasAnyRouteWithEthAndDifferentNeedWrapNative(
+    priceRoute: OptimalRate,
+    exchangeParams: DexExchangeParamWithBooleanNeedWrapNative[],
+  ) {
+    const eth = ETHER_ADDRESS.toLowerCase();
+    const weth =
+      this.dexAdapterService.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
+
+    let currentExchangeParamIndex = 0;
+
+    return !priceRoute.bestRoute.every(route => {
+      const swapExchangeParams: DexExchangeParamWithBooleanNeedWrapNative[] =
+        [];
+
+      route.swaps.forEach(swap => {
+        swap.swapExchanges.forEach(se => {
+          const curExchangeParam = exchangeParams[currentExchangeParamIndex];
+          currentExchangeParamIndex++;
+          if (
+            swap.destToken.toLowerCase() === weth ||
+            swap.destToken.toLowerCase() === eth ||
+            swap.srcToken.toLowerCase() === weth ||
+            swap.srcToken.toLowerCase() === eth
+          ) {
+            swapExchangeParams.push(curExchangeParam);
+          }
+        });
+      });
+
+      return (
+        swapExchangeParams.every(p => p.needWrapNative === true) ||
+        swapExchangeParams.every(p => p.needWrapNative === false)
+      );
+    });
   }
 }

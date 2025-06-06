@@ -232,9 +232,14 @@ export type PoolPrices<T> = {
 };
 
 export type PoolLiquidity = {
+  poolIdentifier?: string;
   exchange: string;
   address: Address;
-  connectorTokens: Token[];
+  // by default, PoolLiquidity.liquidityUSD is the liquidity for token <=> connectorToken swaps
+  // but in case available liquidity is different,
+  // then PoolLiquidity.liquidityUSD is the liquidity for token => connectorToken swaps
+  // and PoolLiquidity.connectorTokens.liquidityUSD is the liquidity for connectorToken => token swaps
+  connectorTokens: (Token & { liquidityUSD?: number })[];
   liquidityUSD: number;
 };
 

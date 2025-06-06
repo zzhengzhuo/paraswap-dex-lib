@@ -107,6 +107,7 @@ import { WrappedMM } from './usual/wrapped-m-m';
 import { UsualPP } from './usual-pp/usual-pp';
 import { Ekubo } from './ekubo/ekubo';
 import { UniswapV4 } from './uniswap-v4/uniswap-v4';
+import { PancakeSwapV2 } from './uniswap-v2/pancake-swap-v2';
 import { uniswapV4Merge } from './uniswap-v4/optimizer';
 
 const LegacyDexes = [
@@ -140,6 +141,7 @@ const Dexes = [
   UniswapV3,
   UniswapV4,
   Algebra,
+  PancakeSwapV2,
   PancakeswapV3,
   VelodromeSlipstream,
   BiSwap,
