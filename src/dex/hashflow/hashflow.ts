@@ -662,7 +662,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
           throw new SlippageCheckError(
             this.dexKey,
             this.network,
-            SwapSide.SELL,
+            side,
             destAmount,
             quoteTokenAmount,
             slippageFactor,
