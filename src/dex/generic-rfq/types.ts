@@ -115,6 +115,7 @@ export class SlippageCheckError extends Error {
     expectedAmount: string,
     quotedAmount: string,
     slippageFactor: BigNumber,
+    insufficientOutput?: boolean,
   ) {
     const expected = new BigNumber(expectedAmount);
     const actual = new BigNumber(quotedAmount);
@@ -134,6 +135,7 @@ export class SlippageCheckError extends Error {
       quotedAmount: actual.toFixed(),
       slippageFactor: slippageFactor.toFixed(),
       slippedPercentage: `${slippedPercentage}%`,
+      ...(insufficientOutput !== undefined && { insufficientOutput }),
     };
 
     super(JSON.stringify(errorDetails));

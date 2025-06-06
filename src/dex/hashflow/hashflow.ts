@@ -659,9 +659,6 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
         }
       } else {
         if (BigInt(quoteTokenAmount) < BigInt(destAmount)) {
-          const message = `Slipped, insufficient output: ${quoteTokenAmount.toString()} < ${destAmount.toString()}`;
-          this.logger.warn(message);
-
           throw new SlippageCheckError(
             this.dexKey,
             this.network,
@@ -669,6 +666,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
             destAmount,
             quoteTokenAmount,
             slippageFactor,
+            true,
           );
         }
 

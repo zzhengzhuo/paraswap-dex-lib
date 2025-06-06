@@ -400,6 +400,7 @@ export class GenericRFQ extends ParaSwapLimitOrders {
           destAmount.toString(),
           makerAssetAmount.toString(),
           slippageFactor,
+          true,
         );
       }
 
