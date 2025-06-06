@@ -382,10 +382,6 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         .toFixed(0);
 
       if (makerAssetAmountFilled < BigInt(requiredAmountWithSlippage)) {
-        this.logger.warn(
-          `${this.dexKey}: Slippage too high. makerAssetAmountFilled=${makerAssetAmountFilled}, required=${requiredAmountWithSlippage}`,
-        );
-
         throw new SlippageCheckError(
           this.dexKey,
           this.network,
@@ -397,8 +393,6 @@ export class GenericRFQ extends ParaSwapLimitOrders {
       }
     } else {
       if (makerAssetAmount < destAmount) {
-        const message = `Slipped, insufficient output: ${makerAssetAmount.toString()} < ${destAmount.toString()}`;
-        this.logger.warn(`${this.dexKey}: ${message}`);
         throw new SlippageCheckError(
           this.dexKey,
           this.network,
@@ -414,10 +408,6 @@ export class GenericRFQ extends ParaSwapLimitOrders {
         .toFixed(0);
 
       if (takerAssetAmount > BigInt(requiredAmountWithSlippage)) {
-        this.logger.warn(
-          `${this.dexKey}: Slippage too high. takerAssetAmount=${takerAssetAmount}, required=${requiredAmountWithSlippage}`,
-        );
-
         throw new SlippageCheckError(
           this.dexKey,
           this.network,
