@@ -55,6 +55,13 @@ export async function runE2ETest(
   const amountToFund = BigInt(srcAmount) * 2n;
   // add allowance override to Augustus
   if (srcToken.toLowerCase() !== ETHER_ADDRESS) {
+    await tenderlySimulator.addTokenBalanceOverride(
+      stateOverride,
+      network,
+      srcToken,
+      senderAddress,
+      amountToFund,
+    );
     await tenderlySimulator.addAllowanceOverride(
       stateOverride,
       network,

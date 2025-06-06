@@ -59,8 +59,6 @@ function _priceComputationCycles(
   zeroForOne: boolean,
   exactInput: boolean,
   side: SwapSide,
-  iterationCount: Record<string, number>,
-  amount: bigint,
 ): [
   // result
   PriceComputationState,
@@ -92,7 +90,6 @@ function _priceComputationCycles(
       latestFullCycleCache.tickCount + i >
       MAX_PRICING_COMPUTATION_STEPS_ALLOWED
     ) {
-      iterationCount[amount.toString()] = latestFullCycleCache.tickCount + i;
       state.amountSpecifiedRemaining = 0n;
       state.amountCalculated = 0n;
       break;
@@ -233,8 +230,6 @@ function _priceComputationCycles(
     state.amountCalculated = 0n;
   }
 
-  iterationCount[amount.toString()] = latestFullCycleCache.tickCount + i;
-
   return [state, { latestFullCycleState, latestFullCycleCache }];
 }
 
@@ -245,7 +240,6 @@ class UniswapV3Math {
     amounts: bigint[],
     zeroForOne: boolean,
     side: SwapSide,
-    iterationCount: Record<string, number> = {},
   ): OutputResult {
     const slot0Start = poolState.slot0;
 
@@ -337,8 +331,6 @@ class UniswapV3Math {
             zeroForOne,
             exactInput,
             side,
-            iterationCount,
-            amount,
           );
         if (
           finalState.amountSpecifiedRemaining === 0n &&
