@@ -2,7 +2,7 @@ import { DexParams } from './types';
 import { DexConfigMap } from '../../types';
 import { Network } from '../../constants';
 
-// Pendle V4 Router
+// Pendle V4 Router https://etherscan.io/address/0x888888888889758f76e7103c6cbf23abbf58f946#code
 const PENDLE_ROUTER_ADDRESS = '0x888888888889758f76e7103c6cbf23abbf58f946';
 // sUSDe PT 29 May 2025
 const OLD_PT_ADDRESS = '0xb7de5dfcb74d25c2f21841fbd6230355c50d9308';
@@ -34,18 +34,6 @@ export const AaveV3PtRollOverConfig: DexConfigMap<DexParams> = {
       newMarketAddress: NEW_MARKET_ADDRESS,
       oracleAddress: ORACLE_ADDRESS,
       decimals: 18,
-      // Mapping of AAVE underlying assets to their aToken addresses
-      aaveAssetMapping: {
-        USDC: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
-        aUSDC: '0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c', // aUSDC
-        USDT: '0xdac17f958d2ee523a2206206994597c13d831ec7', // USDT
-        aUSDT: '0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811', // aUSDT
-        DAI: '0x6b175474e89094c44da98b954eedeac495271d0f', // DAI
-        aDAI: '0x028171bCA77440897B824Ca71D1c56caC55b68A3', // aDAI
-        WETH: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
-        aWETH: '0x030ba81f1c18d280636f32af80b9aad02cf0854e', // aWETH
-        sUSDe: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', // sUSDe underlying for PT tokens
-      },
     },
   },
 };

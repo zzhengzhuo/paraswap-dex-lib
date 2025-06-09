@@ -18,41 +18,7 @@ import { AaveV3PtRollOverData, DexParams, PendleSDKMarket } from './types';
 import { SimpleExchange } from '../simple-exchange';
 import { AaveV3PtRollOverConfig } from './config';
 import { Interface } from '@ethersproject/abi';
-
-const PENDLE_ORACLE_ABI = [
-  {
-    inputs: [
-      { internalType: 'address', name: 'market', type: 'address' },
-      { internalType: 'uint32', name: 'duration', type: 'uint32' },
-    ],
-    name: 'getPtToAssetRate',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'market', type: 'address' },
-      { internalType: 'uint32', name: 'duration', type: 'uint32' },
-    ],
-    name: 'getOracleState',
-    outputs: [
-      {
-        internalType: 'bool',
-        name: 'increaseCardinalityRequired',
-        type: 'bool',
-      },
-      { internalType: 'uint16', name: 'cardinalityRequired', type: 'uint16' },
-      {
-        internalType: 'bool',
-        name: 'oldestObservationSatisfied',
-        type: 'bool',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-];
+import PENDLE_ORACLE_ABI from '../../abi/PendleOracle.json';
 
 export class AaveV3PtRollOver
   extends SimpleExchange

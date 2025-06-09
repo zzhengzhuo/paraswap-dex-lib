@@ -74,5 +74,4 @@ export type DexParams = {
   newMarketAddress: Address;
   oracleAddress: Address;
   decimals: number;
-  aaveAssetMapping: Record<string, Address>;
 };
