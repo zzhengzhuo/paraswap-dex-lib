@@ -322,6 +322,30 @@ describe('BalancerV3 E2E', () => {
         false,
       );
     });
+
+    describe('reClamm Pool', function () {
+      const tokenASymbol: string = 'WETH';
+      const tokenBSymbol: string = 'USDC';
+
+      const tokenAAmount: string = '100000000000000';
+      const tokenBAmount: string = '500000';
+      const nativeTokenAmount = '0';
+      // Filter to known reClamm pool to make sure its picked up
+      // https://balancer.fi/pools/base/v3/0x9e79501c27C772b5e3EFef3E6963027AEF0618b0
+      const reClammPool =
+        '0x9e79501c27C772b5e3EFef3E6963027AEF0618b0'.toLowerCase();
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+        false,
+        [reClammPool],
+      );
+    });
   });
 
   describe('Arbitrum', () => {
@@ -519,7 +543,7 @@ describe('BalancerV3 E2E', () => {
       );
     });
 
-    describe.only('reClamm Pool', function () {
+    describe('reClamm Pool', function () {
       const tokenASymbol: string = 'WETH';
       const tokenBSymbol: string = 'USDC';
 
