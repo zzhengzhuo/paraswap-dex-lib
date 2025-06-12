@@ -30,6 +30,8 @@ import { uint256ToBigInt } from '../../lib/decoders';
 import { decodeStateMultiCallResultWithRelativeBitmaps } from './utils';
 import { _reduceTickBitmap, _reduceTicks } from './contract-math/utils';
 
+const INACTIVE_POOL_AGE_MS = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months
+
 export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
   handlers: {
     [event: string]: (
@@ -314,6 +316,11 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       resBalance1.returnData,
       resState.returnData,
     ] as [bigint, bigint, DecodedStateMultiCallResultWithRelativeBitmaps];
+
+    const inactiveTimestampMs = Date.now() - INACTIVE_POOL_AGE_MS;
+    const isActive =
+      inactiveTimestampMs < _state.observation.blockTimestamp * 1000;
+    assert(isActive, 'Pool is inactive');
 
     const tickBitmap = {};
     const ticks = {};
