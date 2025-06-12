@@ -24,13 +24,12 @@ import {
   TICK_BITMAP_TO_USE,
   TICK_BITMAP_TO_USE_BY_CHAIN,
   TICK_BITMAP_BUFFER_BY_CHAIN,
+  INACTIVE_POOL_AGE_MS,
 } from './constants';
 import { TickBitMap } from './contract-math/TickBitMap';
 import { uint256ToBigInt } from '../../lib/decoders';
 import { decodeStateMultiCallResultWithRelativeBitmaps } from './utils';
 import { _reduceTickBitmap, _reduceTicks } from './contract-math/utils';
-
-const INACTIVE_POOL_AGE_MS = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months
 
 export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
   handlers: {
