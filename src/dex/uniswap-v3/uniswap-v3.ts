@@ -331,7 +331,7 @@ export class UniswapV3
       ) {
         if (e.message.endsWith('Pool is inactive')) {
           this.logger.info(
-            `${this.dexKey}: Adding inactive pool to "notExistingPoolSet": srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee}`,
+            `${this.dexKey}: Adding inactive pool ${pool.poolAddress} to "notExistingPoolSet": srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee}`,
           );
         }
         // no need to await we want the set to have the pool key but it's not blocking
