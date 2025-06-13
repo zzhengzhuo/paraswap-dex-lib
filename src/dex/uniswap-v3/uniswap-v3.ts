@@ -329,6 +329,11 @@ export class UniswapV3
         (e.message.endsWith('Pool does not exist') ||
           e.message.endsWith('Pool is inactive'))
       ) {
+        if (e.message.endsWith('Pool is inactive')) {
+          this.logger.info(
+            `${this.dexKey}: Adding inactive pool to "notExistingPoolSet": srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee}`,
+          );
+        }
         // no need to await we want the set to have the pool key but it's not blocking
         void this.dexHelper.cache.zadd(
           this.notExistingPoolSetKey,
