@@ -547,13 +547,13 @@ describe('BalancerV3 E2E', () => {
       const tokenASymbol: string = 'WETH';
       const tokenBSymbol: string = 'USDC';
 
-      const tokenAAmount: string = '10000000000000000';
-      const tokenBAmount: string = '10000000';
+      const tokenAAmount: string = '100000000000000';
+      const tokenBAmount: string = '1000000';
       const nativeTokenAmount = '0';
       // Filter to known reClamm pool to make sure its picked up
-      // https://balancer.fi/pools/base/v3/0x9AbBeF96e52bA8F6b063633F365385B3E15B84F1
+      // https://balancer.fi/pools/base/v3/0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B
       const reClammPool =
-        '0x9AbBeF96e52bA8F6b063633F365385B3E15B84F1'.toLowerCase();
+        '0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B'.toLowerCase();
       testForNetwork(
         network,
         dexKey,

@@ -547,16 +547,14 @@ describe('BalancerV3 EventPool', function () {
     const eventsToTest: Record<Address, EventMappings> = {
       [BalancerV3Config.BalancerV3[network].vaultAddress]: {
         VaultAuxiliary: {
-          // 31048956: LastTimestampUpdated, CenterednessMarginUpdated, DailyPriceShiftExponentUpdated, PriceRatioStateUpdated, VirtualBalancesUpdated, https://basescan.org/tx/0x0089a058e988ef5ff9b6be42a622bd0a1fad678180c13d061a6a03cdced4f0a7
-          // 31094652: CenterednessMarginUpdated, LastTimestampUpdated, https://basescan.org/tx/0xbc3371bb0c995e7decdeb04aee2a829e424056aad63258fdeedc77de2ab64154
-          // 31094625: VirtualBalancesUpdated, https://basescan.org/tx/0x3d3b6e47728b6ec0a95422ee0a35dce43cbdef03b8ac65f6647d0178ba62a64c
-          // 31094562: PriceRatioStateUpdated, https://basescan.org/tx/0xe59aa545143e358279b784756f1984595a22adfc74616f612cb75e5cd6d18bbc
-          blockNumbers: [31048956, 31094652, 31094625, 31094562],
+          // 31484163: LastTimestampUpdated, DailyPriceShiftExponentUpdated, https://basescan.org/tx/0x5fe5278427b2df26242347d94e3530b4a87bda39efb7f367cc1416edc3db5021
+          // 31484217: LastTimestampUpdated, PriceRatioStateUpdated, https://basescan.org/tx/0xade7cb54cb09e874737c2172ef74927e062cf8a5a6ac3bb6d8ae8efee5faf355
+          // 31483951: CenterednessMarginUpdated, VirtualBalancesUpdated, PriceRatioStateUpdated, DailyPriceShiftExponentUpdated, LastTimestampUpdated, https://basescan.org/tx/0x2ad9d79feae679cdf3b104643899501a1c44e56d19b06be59872ed0ae87b992c
+          blockNumbers: [31484163, 31484217, 31483951],
           poolAddress: [
-            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
-            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
-            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
-            '0xba615a0a9237b64bfb3051f8160483c10dde0012',
+            '0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B',
+            '0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B',
+            '0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B',
           ],
         },
       },

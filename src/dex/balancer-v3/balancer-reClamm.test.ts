@@ -14,12 +14,12 @@ const dexHelper = new DummyDexHelper(network);
 const tokens = Tokens[network];
 const weth = tokens['WETH'];
 const usdc = tokens['USDC'];
-// https://balancer.fi/pools/base/v3/0xBa615a0A9237b64BFb3051f8160483C10Dde0012
-const reClammPool = '0xBa615a0A9237b64BFb3051f8160483C10Dde0012'.toLowerCase();
+// https://balancer.fi/pools/base/v3/0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B
+const reClammPool = '0x97c4B3E63566D6Ece3c9BCE535EDc2CA52FC6d5B'.toLowerCase();
 
 describe('BalancerV3 reClamm tests', function () {
   describe('reClamm pool should be returned', function () {
-    const blockNumber = 31119392;
+    const blockNumber = 31484040;
     beforeAll(async () => {
       balancerV3 = new BalancerV3(network, dexKey, dexHelper);
       if (balancerV3.initializePricing) {
@@ -44,7 +44,7 @@ describe('BalancerV3 reClamm tests', function () {
   });
 
   describe('should match onchain pricing - in range', function () {
-    const blockNumber = 31094200;
+    const blockNumber = 31484040;
     beforeAll(async () => {
       balancerV3 = new BalancerV3(network, dexKey, dexHelper);
       if (balancerV3.initializePricing) {
@@ -83,8 +83,8 @@ describe('BalancerV3 reClamm tests', function () {
   });
 
   describe('should match onchain pricing - out of range', function () {
-    // Pool out of range after this tx: https://basescan.org/tx/0x5b89fcf88860f04cf6798c1ee7a3044b3f30a8dc2e85e5cdd34845e13bbb6f70
-    const blockNumber = 31094381;
+    // Pool out of range after this tx: https://basescan.org/tx/0xa0a1e8fc10d421400cbecaeb8e9cf0c3a556f19dcfc5f6006459c86b64b79d99
+    const blockNumber = 31484055;
     beforeAll(async () => {
       balancerV3 = new BalancerV3(network, dexKey, dexHelper);
       if (balancerV3.initializePricing) {
