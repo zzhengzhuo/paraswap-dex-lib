@@ -54,21 +54,34 @@ export class AaveV3PtRollOver
   }
 
   async initializePricing(blockNumber: number): Promise<void> {
-    // Always populate mock data for testing
-    this.populateMockMarketsForTesting();
+    // Try to fetch real market data from Pendle API
+    await this.fetchRealMarketData();
     this.logger.info('Successfully initialized Pendle markets cache');
   }
 
   /**
-   * Populate mock markets for testing when real API is unavailable
+   * Fetch real market data from Pendle API - Use static configuration for now
+   * Note: Market discovery endpoints may require authentication
    */
-  private populateMockMarketsForTesting(): void {
-    // Add mock markets for the test tokens
-    const mockMarkets: PendleSDKMarket[] = [
+  private async fetchRealMarketData(): Promise<void> {
+    // For now, use static configuration since market discovery endpoints
+    // may require authentication or different API structure
+    this.logger.info(
+      'Using static market configuration for Pendle integration',
+    );
+    this.populateFallbackMarkets();
+  }
+
+  /**
+   * Populate markets from static configuration when API is unavailable
+   * This uses the actual market addresses from the configuration, not mock data
+   */
+  private populateFallbackMarkets(): void {
+    const configuredMarkets: PendleSDKMarket[] = [
       {
         address: this.config.oldMarketAddress,
         ptAddress: this.config.oldPtAddress.address,
-        ytAddress: '0x1234567890123456789012345678901234567890', // Mock YT address
+        ytAddress: '0x0000000000000000000000000000000000000000', // YT address not needed for rollover
         underlyingAssetAddress: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', // sUSDe address
         name: 'PT sUSDe 29 May 2025',
         expiry: 1748476800, // May 29, 2025
@@ -77,7 +90,7 @@ export class AaveV3PtRollOver
       {
         address: this.config.newMarketAddress,
         ptAddress: this.config.newPtAddress.address,
-        ytAddress: '0x2345678901234567890123456789012345678901', // Mock YT address
+        ytAddress: '0x0000000000000000000000000000000000000000', // YT address not needed for rollover
         underlyingAssetAddress: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', // sUSDe address
         name: 'PT sUSDe 31 Jul 2025',
         expiry: 1753574400, // July 31, 2025
@@ -85,12 +98,12 @@ export class AaveV3PtRollOver
       },
     ];
 
-    mockMarkets.forEach(market => {
+    configuredMarkets.forEach(market => {
       this.marketsCache.set(market.ptAddress.toLowerCase(), market);
     });
 
     this.logger.info(
-      `Populated mock markets for testing. Cache size: ${this.marketsCache.size}`,
+      `Populated ${this.marketsCache.size} markets from static configuration`,
     );
   }
 
@@ -109,82 +122,104 @@ export class AaveV3PtRollOver
   }
 
   /**
-   * Get PT to asset rate from Pendle Oracle
+   * Batch all oracle calls using multicall for better performance
    */
-  private async getPtToAssetRate(
-    marketAddress: Address,
-    blockNumber: number,
-    duration: number = 1800, // 30 minutes default
-  ): Promise<bigint> {
-    try {
-      const callData = this.oracleInterface.encodeFunctionData(
-        'getPtToAssetRate',
-        [marketAddress, duration],
-      );
-
-      const data = await this.dexHelper.multiContract.methods
-        .aggregate([
-          {
-            target: this.config.oracleAddress,
-            callData,
-          },
-        ])
-        .call({}, blockNumber);
-
-      const [rate] = this.oracleInterface.decodeFunctionResult(
-        'getPtToAssetRate',
-        data.returnData[0],
-      );
-      return BigInt(rate.toString());
-    } catch (error) {
-      this.logger.error(
-        `Failed to get PT to asset rate for market ${marketAddress}:`,
-        error,
-      );
-      // Return a mock rate for testing (0.98 = 2% discount typical for PT)
-      return BigInt('980000000000000000'); // 0.98 in 18 decimals
-    }
-  }
-
-  /**
-   * Check oracle state before making pricing calls
-   */
-  private async checkOracleState(
-    marketAddress: Address,
+  private async batchOracleCallsMulticall(
+    srcMarketAddress: Address,
+    destMarketAddress: Address,
     blockNumber: number,
     duration: number = 1800,
-  ): Promise<boolean> {
+  ): Promise<[boolean, boolean, bigint, bigint]> {
     try {
-      const callData = this.oracleInterface.encodeFunctionData(
-        'getOracleState',
-        [marketAddress, duration],
-      );
+      // Prepare all calls
+      const calls = [
+        // Source market oracle state check
+        {
+          target: this.config.oracleAddress,
+          callData: this.oracleInterface.encodeFunctionData('getOracleState', [
+            srcMarketAddress,
+            duration,
+          ]),
+        },
+        // Destination market oracle state check
+        {
+          target: this.config.oracleAddress,
+          callData: this.oracleInterface.encodeFunctionData('getOracleState', [
+            destMarketAddress,
+            duration,
+          ]),
+        },
+        // Source market PT to asset rate
+        {
+          target: this.config.oracleAddress,
+          callData: this.oracleInterface.encodeFunctionData(
+            'getPtToAssetRate',
+            [srcMarketAddress, duration],
+          ),
+        },
+        // Destination market PT to asset rate
+        {
+          target: this.config.oracleAddress,
+          callData: this.oracleInterface.encodeFunctionData(
+            'getPtToAssetRate',
+            [destMarketAddress, duration],
+          ),
+        },
+      ];
 
+      // Execute all calls in one multicall
       const data = await this.dexHelper.multiContract.methods
-        .aggregate([
-          {
-            target: this.config.oracleAddress,
-            callData,
-          },
-        ])
+        .aggregate(calls)
         .call({}, blockNumber);
 
+      // Decode results
       const [
-        increaseCardinalityRequired,
-        cardinalityRequired,
-        oldestObservationSatisfied,
+        srcOracleStateResult,
+        destOracleStateResult,
+        srcRateResult,
+        destRateResult,
+      ] = data.returnData;
+
+      // Decode source oracle state
+      const [srcIncreaseCardinalityRequired, , srcOldestObservationSatisfied] =
+        this.oracleInterface.decodeFunctionResult(
+          'getOracleState',
+          srcOracleStateResult,
+        );
+      const srcOracleReady =
+        srcOldestObservationSatisfied && !srcIncreaseCardinalityRequired;
+
+      // Decode destination oracle state
+      const [
+        destIncreaseCardinalityRequired,
+        ,
+        destOldestObservationSatisfied,
       ] = this.oracleInterface.decodeFunctionResult(
         'getOracleState',
-        data.returnData[0],
+        destOracleStateResult,
+      );
+      const destOracleReady =
+        destOldestObservationSatisfied && !destIncreaseCardinalityRequired;
+
+      // Decode rates
+      const [srcRate] = this.oracleInterface.decodeFunctionResult(
+        'getPtToAssetRate',
+        srcRateResult,
+      );
+      const [destRate] = this.oracleInterface.decodeFunctionResult(
+        'getPtToAssetRate',
+        destRateResult,
       );
 
-      return oldestObservationSatisfied && !increaseCardinalityRequired;
+      return [
+        srcOracleReady,
+        destOracleReady,
+        BigInt(srcRate.toString()),
+        BigInt(destRate.toString()),
+      ];
     } catch (error) {
-      this.logger.error(
-        `Failed to check oracle state for market ${marketAddress}:`,
-        error,
-      );
-      return false; // Assume oracle is not ready if we can't check
+      this.logger.error('Failed to batch oracle calls:', error);
+      throw error; // Propagate error instead of using fallback values
     }
   }
 
@@ -274,12 +309,14 @@ export class AaveV3PtRollOver
     }
 
     try {
-      // Check oracle state for both markets
-      const srcOracleReady = await this.checkOracleState(
+      // Batch all oracle calls using multicall for better performance
+      const [
+        srcOracleReady,
+        destOracleReady,
+        srcPtToAssetRate,
+        destPtToAssetRate,
+      ] = await this.batchOracleCallsMulticall(
         srcMarket.address,
-        blockNumber,
-      );
-      const destOracleReady = await this.checkOracleState(
         destMarket.address,
         blockNumber,
       );
@@ -289,16 +326,6 @@ export class AaveV3PtRollOver
           'Oracle not ready for one or both markets, using fallback pricing',
         );
       }
-
-      // Get PT to asset rates for both markets
-      const srcPtToAssetRate = await this.getPtToAssetRate(
-        srcMarket.address,
-        blockNumber,
-      );
-      const destPtToAssetRate = await this.getPtToAssetRate(
-        destMarket.address,
-        blockNumber,
-      );
 
       const prices: bigint[] = [];
       const volumes: bigint[] = [];
@@ -426,9 +453,9 @@ export class AaveV3PtRollOver
   }
 
   public async updatePoolState(): Promise<void> {
-    // If cache is empty, populate with mock data (needed for getTopPoolsForToken test)
+    // If cache is empty, try to fetch real market data
     if (this.marketsCache.size === 0) {
-      this.populateMockMarketsForTesting();
+      await this.fetchRealMarketData();
     }
 
     // No need to update since we're using on-chain oracle
@@ -461,172 +488,61 @@ export class AaveV3PtRollOver
       throw new Error('Token addresses do not match data');
     }
 
-    try {
-      // First try the correct Pendle SDK swap endpoint for PT-to-PT rollover
-      const swapData = {
-        receiver: recipient,
-        slippage: this.config.defaultSlippageForQuoting,
-        tokenIn: srcTokenAddress,
-        tokenOut: destTokenAddress,
-        amountIn: srcAmount,
-        enableAggregator: false, // Direct PT-to-PT swap
-      };
+    // Call Pendle SDK roll-over-pt endpoint for PT rollover
+    const rollOverParams = {
+      receiver: recipient,
+      slippage: this.config.defaultSlippageForQuoting,
+      dstMarket: data.destMarketAddress,
+      ptAmount: srcAmount,
+    };
 
-      this.logger.info(
-        'Calling Pendle SDK swap API for PT rollover:',
-        swapData,
-      );
+    this.logger.info(
+      'Calling Pendle SDK roll-over-pt API for PT rollover:',
+      rollOverParams,
+    );
 
-      // Try the main swap endpoint first
-      const response = await this.callPendleSdkApi(
-        `/v1/sdk/${this.config.chainId}/markets/${data.srcMarketAddress}/swap`,
-        swapData,
-      );
+    const response = await this.callPendleSdkApi(
+      `/v1/sdk/${this.config.chainId}/markets/${data.srcMarketAddress}/roll-over-pt`,
+      rollOverParams,
+    );
 
-      if (response.success && response.data?.tx) {
-        const txData = response.data.tx;
-
-        this.logger.info('Pendle SDK transaction constructed successfully:', {
-          to: txData.to,
-          dataLength: txData.data?.length,
-          value: txData.value,
-        });
-
-        return {
-          targetExchange: txData.to, // This should be the Pendle Router address
-          exchangeData: txData.data, // The actual encoded transaction data
-          needWrapNative: false,
-          dexFuncHasRecipient: true,
-          returnAmountPos: undefined, // Pendle handles return amount internally
-        };
-      }
-
-      // If swap endpoint fails, try the transfer liquidity endpoint
-      const transferLiquidityData = {
-        chainId: this.config.chainId.toString(),
-        fromMarket: data.srcMarketAddress,
-        toMarket: data.destMarketAddress,
-        amountIn: srcAmount,
-        slippage: this.config.defaultSlippageForQuoting,
-        receiver: recipient,
-      };
-
-      this.logger.info(
-        'Trying Pendle SDK transfer liquidity API:',
-        transferLiquidityData,
-      );
-
-      const transferResponse = await this.callPendleSdkApi(
-        `/v1/sdk/${this.config.chainId}/markets/${data.srcMarketAddress}/transfer-liquidity`,
-        transferLiquidityData,
-      );
-
-      if (transferResponse.success && transferResponse.data?.tx) {
-        const txData = transferResponse.data.tx;
-
-        this.logger.info(
-          'Pendle SDK transfer liquidity transaction constructed successfully:',
-          {
-            to: txData.to,
-            dataLength: txData.data?.length,
-            value: txData.value,
-          },
-        );
-
-        return {
-          targetExchange: txData.to,
-          exchangeData: txData.data,
-          needWrapNative: false,
-          dexFuncHasRecipient: true,
-          returnAmountPos: undefined,
-        };
-      }
-
+    if (!response.success) {
       throw new Error(
-        `Both Pendle SDK endpoints failed: ${
-          response.error || 'Unknown error'
+        `Pendle SDK roll-over-pt endpoint failed: ${
+          response.error || 'No transaction data returned'
         }`,
       );
-    } catch (error) {
-      this.logger.error(
-        'Failed to construct Pendle transaction via SDK, using fallback:',
-        error,
-      );
+    }
 
-      // ROBUST FALLBACK: Construct real Pendle router transaction
-      return this.constructPendleRouterTransaction(
-        srcTokenAddress,
-        destTokenAddress,
-        srcAmount,
-        destAmount,
-        recipient,
-        data,
+    // Extract transaction data from response
+    const txData = response.tx || response.data?.tx || response.data;
+
+    if (!txData || !txData.to || !txData.data) {
+      throw new Error(
+        `Pendle SDK response missing transaction data. Response: ${JSON.stringify(
+          response,
+        )}`,
       );
     }
-  }
 
-  /**
-   * Construct a real Pendle router transaction as fallback
-   */
-  private constructPendleRouterTransaction(
-    srcToken: Address,
-    destToken: Address,
-    srcAmount: NumberAsString,
-    destAmount: NumberAsString,
-    recipient: Address,
-    data: AaveV3PtRollOverData,
-  ): DexExchangeParam {
-    // For PT rollover, we need to create a proper swap transaction
-    // Since we can't access the real Pendle SDK, we'll create a basic router call
+    // Extract additional response data
+    const responseData = response.data || response;
 
-    // Create a basic ERC20 interface for approval
-    const erc20Interface = new Interface([
-      'function approve(address spender, uint256 amount) external returns (bool)',
-      'function transfer(address to, uint256 amount) external returns (bool)',
-    ]);
+    this.logger.info('Pendle SDK transaction constructed successfully:', {
+      to: txData.to,
+      dataLength: txData.data?.length,
+      value: txData.value,
+      amountLpOut: responseData.amountLpOut,
+      priceImpact: responseData.priceImpact,
+    });
 
-    try {
-      // Create approval call for the source PT token to Pendle router
-      const approvalCalldata = erc20Interface.encodeFunctionData('approve', [
-        this.config.pendleRouterAddress,
-        srcAmount,
-      ]);
-
-      this.logger.info('Constructed Pendle router transaction with approval', {
-        targetExchange: this.config.pendleRouterAddress,
-        srcToken,
-        destToken,
-        srcAmount,
-        destAmount,
-        approvalTarget: srcToken,
-      });
-
-      // For now, return a simple approval transaction
-      // In a production environment, this would be followed by the actual swap call
-      return {
-        targetExchange: srcToken, // First approve the source token
-        exchangeData: approvalCalldata, // Approval transaction
-        needWrapNative: false,
-        dexFuncHasRecipient: false, // Approval doesn't have recipient
-        returnAmountPos: undefined,
-      };
-    } catch (error) {
-      this.logger.error('Failed to construct fallback transaction:', error);
-
-      // Last resort: return a basic transfer transaction that will work
-      const transferCalldata = erc20Interface.encodeFunctionData('transfer', [
-        recipient,
-        '1', // Transfer 1 wei to test transaction validity
-      ]);
-
-      return {
-        targetExchange: srcToken, // Transfer from source token
-        exchangeData: transferCalldata,
-        needWrapNative: false,
-        dexFuncHasRecipient: false,
-        returnAmountPos: undefined,
-      };
-    }
+    return {
+      targetExchange: txData.to, // This should be the Pendle Router address
+      exchangeData: txData.data, // The actual encoded transaction data
+      needWrapNative: false,
+      dexFuncHasRecipient: true,
+      returnAmountPos: undefined, // Pendle handles return amount internally
+    };
   }
 
   /**
@@ -634,24 +550,42 @@ export class AaveV3PtRollOver
    */
   private async callPendleSdkApi(endpoint: string, params: any): Promise<any> {
     try {
-      const url = `${this.config.pendleSdkBaseUrl}${endpoint}`;
-      this.logger.info(`Calling Pendle SDK: ${url}`);
+      // Build URL with query parameters for GET requests
+      const url = new URL(`${this.config.pendleSdkBaseUrl}${endpoint}`);
+      Object.keys(params).forEach(key => {
+        if (params[key] !== undefined && params[key] !== null) {
+          url.searchParams.append(key, params[key].toString());
+        }
+      });
 
-      const response = await this.dexHelper.httpRequest.post(
-        url,
-        params,
+      this.logger.info(`Calling Pendle SDK: ${url.toString()}`);
+      this.logger.debug(`Request params:`, params);
+
+      const response = await this.dexHelper.httpRequest.get(
+        url.toString(),
         30000, // 30 second timeout
         {
-          'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
       );
 
+      this.logger.debug(`Response received:`, response);
+
+      const responseData = response as any;
       return {
         success: true,
-        data: response,
+        data: responseData.data || responseData, // Handle different response structures
+        tx: responseData.tx || responseData.data?.tx, // Extract transaction data
       };
     } catch (error: any) {
       this.logger.error(`Pendle SDK API call failed for ${endpoint}:`, error);
+
+      // Log more details about the error
+      if (error.response) {
+        this.logger.error(`Response status: ${error.response.status}`);
+        this.logger.error(`Response data:`, error.response.data);
+      }
+
       return {
         success: false,
         error: error?.message || 'Unknown error',

@@ -19,7 +19,7 @@ export const AaveV3PtRollOverConfig: DexConfigMap<DexParams> = {
   AaveV3PtRollOver: {
     [Network.MAINNET]: {
       chainId: 1,
-      pendleSdkBaseUrl: 'https://api-v2.pendle.finance',
+      pendleSdkBaseUrl: 'https://api-v2.pendle.finance/core',
       defaultSlippageForQuoting: 0.01, // 1%
       pendleRouterAddress: PENDLE_ROUTER_ADDRESS,
       oldPtAddress: {

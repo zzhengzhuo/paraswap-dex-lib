@@ -18,6 +18,7 @@ import { DummyDexHelper } from '../../dex-helper/dummy-dex-helper';
 import { Network, SwapSide } from '../../constants';
 import { BI_POWS } from '../../bigint-constants';
 import { AaveV3PtRollOver } from './aave-v3-pt-roll-over';
+import PENDLE_ORACLE_ABI from '../../abi/PendleOracle.json';
 
 const checkOnChainPricing = async (
   aaveV3PtRollOver: AaveV3PtRollOver,
@@ -30,10 +31,94 @@ const checkOnChainPricing = async (
   dexHelper: IDexHelper,
   data: AaveV3PtRollOverData,
 ) => {
-  // Skip on-chain pricing check for this DEX since it uses Pendle Oracle
-  // and the transaction construction is mock for now
-  console.log('Skipping on-chain pricing check for oracle-based DEX');
-  return;
+  // Import the oracle interface for direct on-chain calls
+  const oracleInterface = new Interface(PENDLE_ORACLE_ABI);
+  const oracleAddress = '0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2';
+
+  try {
+    // Prepare multicall for getting rates directly from Pendle Oracle
+    const calls = [
+      // Source market PT to asset rate
+      {
+        target: oracleAddress,
+        callData: oracleInterface.encodeFunctionData('getPtToAssetRate', [
+          data.srcMarketAddress,
+          1800, // 30 minutes duration
+        ]),
+      },
+      // Destination market PT to asset rate
+      {
+        target: oracleAddress,
+        callData: oracleInterface.encodeFunctionData('getPtToAssetRate', [
+          data.destMarketAddress,
+          1800, // 30 minutes duration
+        ]),
+      },
+    ];
+
+    const result = await dexHelper.multiContract.methods
+      .aggregate(calls)
+      .call({}, blockNumber);
+
+    // Decode the rates
+    const [srcRate] = oracleInterface.decodeFunctionResult(
+      'getPtToAssetRate',
+      result.returnData[0],
+    );
+    const [destRate] = oracleInterface.decodeFunctionResult(
+      'getPtToAssetRate',
+      result.returnData[1],
+    );
+
+    const srcPtToAssetRate = BigInt(srcRate.toString());
+    const destPtToAssetRate = BigInt(destRate.toString());
+
+    // Calculate expected exchange rate: srcPT -> asset -> destPT
+    const exchangeRate = (srcPtToAssetRate * BigInt(1e18)) / destPtToAssetRate;
+
+    // Calculate expected prices for each amount
+    const expectedPrices: bigint[] = [];
+    for (const amount of amounts) {
+      if (amount === 0n) {
+        expectedPrices.push(0n);
+      } else {
+        const outputAmount = (amount * exchangeRate) / BigInt(1e18);
+        // Apply the same slippage used in getPricesVolume (0.1%)
+        const outputWithSlippage = (outputAmount * 999n) / 1000n;
+        const effectivePrice = (outputWithSlippage * BigInt(1e18)) / amount;
+        expectedPrices.push(effectivePrice);
+      }
+    }
+
+    console.log('On-chain prices:', expectedPrices);
+    console.log('Calculated prices:', prices);
+
+    // Allow for small differences due to rounding
+    for (let i = 0; i < prices.length; i++) {
+      const price = prices[i];
+      const expectedPrice = expectedPrices[i];
+
+      if (price === 0n && expectedPrice === 0n) {
+        continue; // Both zero, ok
+      }
+
+      // Allow up to 0.01% difference for rounding
+      const diff =
+        price > expectedPrice ? price - expectedPrice : expectedPrice - price;
+      const tolerance = expectedPrice / 10000n; // 0.01%
+
+      if (diff > tolerance) {
+        throw new Error(
+          `Price mismatch at index ${i}: got ${price}, expected ${expectedPrice}, diff ${diff} > tolerance ${tolerance}`,
+        );
+      }
+    }
+
+    console.log('✅ On-chain pricing check passed');
+  } catch (error) {
+    console.error('❌ On-chain pricing check failed:', error);
+    throw error;
+  }
 };
 
 async function testPricingOnNetwork(
