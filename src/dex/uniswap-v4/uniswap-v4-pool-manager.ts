@@ -32,6 +32,8 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
 
   poolManagerIface: Interface;
 
+  private wethAddress: string;
+
   private poolsCacheKey = 'pools_cache';
 
   constructor(
@@ -54,6 +56,9 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     this.stateViewIface = new Interface(UniswapV4StateViewABI);
     this.poolManagerIface = new Interface(UniswapV4PoolManagerABI);
     this.addressesSubscribed = [this.config.poolManager];
+
+    this.wethAddress =
+      this.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
 
     this.logDecoder = (log: Log) => this.poolManagerIface.parseLog(log);
 
@@ -135,14 +140,11 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     destToken: Address,
     blockNumber: number,
   ): Promise<Pool[]> {
-    const wethAddress =
-      this.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
-
     const isEthSrc = isETHAddress(srcToken);
     const isEthDest = isETHAddress(destToken);
 
-    const isWethSrc = srcToken.toLowerCase() === wethAddress;
-    const isWethDest = destToken.toLowerCase() === wethAddress;
+    const isWethSrc = srcToken.toLowerCase() === this.wethAddress;
+    const isWethDest = destToken.toLowerCase() === this.wethAddress;
 
     const _src = isEthSrc ? NULL_ADDRESS : srcToken.toLowerCase();
     const _dest = isEthDest ? NULL_ADDRESS : destToken.toLowerCase();
@@ -150,7 +152,7 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     const matchesSrcToken = (poolToken: string): boolean => {
       return (
         poolToken === _src ||
-        (isEthSrc && poolToken === wethAddress) ||
+        (isEthSrc && poolToken === this.wethAddress) ||
         (isWethSrc && poolToken === NULL_ADDRESS)
       );
     };
@@ -158,12 +160,24 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
     const matchesDestToken = (poolToken: string): boolean => {
       return (
         poolToken === _dest ||
-        (isEthDest && poolToken === wethAddress) ||
+        (isEthDest && poolToken === this.wethAddress) ||
         (isWethDest && poolToken === NULL_ADDRESS)
       );
     };
 
     return this.pools
+      .filter(pool => {
+        // TODO: temporary, should be used for tests only
+        const token0 = pool.token0.address.toLowerCase();
+        const token1 = pool.token1.address.toLowerCase();
+
+        // force weth pools
+        // return token0 !== NULL_ADDRESS && token1 !== NULL_ADDRESS;
+        // force eth pools
+        // return token0 === NULL_ADDRESS || token1 === NULL_ADDRESS;
+        // all pools
+        return true;
+      })
       .filter(pool => {
         const token0 = pool.token0.address;
         const token1 = pool.token1.address;
