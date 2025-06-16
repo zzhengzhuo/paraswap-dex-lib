@@ -107,7 +107,9 @@ import { WrappedMM } from './usual/wrapped-m-m';
 import { UsualPP } from './usual-pp/usual-pp';
 import { Ekubo } from './ekubo/ekubo';
 import { UniswapV4 } from './uniswap-v4/uniswap-v4';
+import { PancakeSwapV2 } from './uniswap-v2/pancake-swap-v2';
 import { uniswapV4Merge } from './uniswap-v4/optimizer';
+import { RingV2 } from './uniswap-v2/ring-v2';
 
 const LegacyDexes = [
   CurveV2,
@@ -140,6 +142,7 @@ const Dexes = [
   UniswapV3,
   UniswapV4,
   Algebra,
+  PancakeSwapV2,
   PancakeswapV3,
   VelodromeSlipstream,
   BiSwap,
@@ -209,6 +212,7 @@ const Dexes = [
   UsualMUsd0,
   UsualPP,
   Ekubo,
+  RingV2,
 ];
 
 export type LegacyDexConstructor = new (dexHelper: IDexHelper) => IDexTxBuilder<

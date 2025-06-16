@@ -86,10 +86,6 @@ export type RoutingInstruction = {
   targetQuote: boolean;
 };
 
-export class SlippageError extends Error {
-  isSlippageError = true;
-}
-
 export type RestrictData = {
   count: number;
   addedDatetimeMs: number;
