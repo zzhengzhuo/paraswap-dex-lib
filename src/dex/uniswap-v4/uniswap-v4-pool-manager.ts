@@ -280,6 +280,10 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
       return {};
     }
 
+    this.logger.info(
+      `Initializing pool ${id} with fee ${fee} and tick spacing ${tickSpacing} on ${this.parentName} `,
+    );
+
     this.pools.push({
       id,
       fee,
