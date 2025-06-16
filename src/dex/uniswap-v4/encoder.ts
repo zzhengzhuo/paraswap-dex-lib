@@ -5,7 +5,6 @@ import RouterAbi from '../../abi/uniswap-v4/router.abi.json';
 import { Interface } from '@ethersproject/abi';
 import { isETHAddress } from '../../utils';
 import { NULL_ADDRESS } from '../../constants';
-import { IDexHelper } from '../../dex-helper';
 import { SwapSide } from '@paraswap/core/build/constants';
 import { BI_MAX_UINT128 } from '../../bigint-constants';
 
@@ -13,6 +12,7 @@ const routerIface = new Interface(RouterAbi);
 
 enum Commands {
   PERMIT2_TRANSFER_FROM = 2, // 0x02 -> 2
+  SWEEP = 4, // 0x04 -> 4
   WRAP_ETH = 11, // 0x0b -> 11
   UNWRAP_WETH = 12, // 0x0c -> 12
   V4_SWAP = 16, // 0x10 -> 16
@@ -91,7 +91,6 @@ function encodeActions(actions: Actions[]): string {
 }
 
 function encodeInputForExecute(
-  dexHelper: IDexHelper,
   srcToken: Address,
   destToken: Address,
   data: UniswapV4Data,
@@ -101,10 +100,8 @@ function encodeInputForExecute(
   recipient: string,
   encodedActions: string,
   encodedActionValues: string[],
+  wethAddr: string,
 ): string {
-  const wethAddr =
-    dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
-
   const isEthSrc = isETHAddress(srcToken);
   const isEthDest = isETHAddress(destToken);
   const isWethSrc = srcToken.toLowerCase() === wethAddr;
@@ -143,7 +140,7 @@ function encodeInputForExecute(
 
     const wrapInput = ethers.utils.defaultAbiCoder.encode(
       ['address', 'uint256'],
-      [ActionConstants.ADDRESS_THIS, amountIn],
+      [ActionConstants.ADDRESS_THIS, ActionConstants.CONTRACT_BALANCE],
     );
 
     inputs.unshift(wrapInput);
@@ -156,18 +153,10 @@ function encodeInputForExecute(
 
     const unwrapInput = ethers.utils.defaultAbiCoder.encode(
       ['address', 'uint256'],
-      [ActionConstants.ADDRESS_THIS, amountIn],
+      // as all available balance will be unwrapped, set minAmount to 0
+      [ActionConstants.ADDRESS_THIS, 0],
     );
     inputs.unshift(unwrapInput);
-
-    // Need to make transfer before the swap to make unwrap
-    types.unshift('uint8');
-    commands.unshift(Commands.PERMIT2_TRANSFER_FROM);
-    const transferInput = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'address', 'uint256'],
-      [wethAddr, ActionConstants.ADDRESS_THIS, amountIn],
-    );
-    inputs.unshift(transferInput);
   }
 
   // Unwrap ETH on Router for WETH pool
@@ -177,7 +166,7 @@ function encodeInputForExecute(
 
     const unwrapInput = ethers.utils.defaultAbiCoder.encode(
       ['address', 'uint256'],
-      [recipient, ActionConstants.OPEN_DELTA],
+      [recipient, 0],
     );
     inputs.push(unwrapInput);
   }
@@ -195,6 +184,45 @@ function encodeInputForExecute(
     inputs.push(wrapInput);
   }
 
+  // take srcToken leftovers after BUY
+  if (side === SwapSide.BUY) {
+    // unwrap if src token was wrapped
+    if (isEthSrc && isWethPoolForSrc) {
+      types.push('uint8');
+      commands.push(Commands.UNWRAP_WETH);
+
+      const unwrapInput = ethers.utils.defaultAbiCoder.encode(
+        ['address', 'uint256'],
+        // as all available balance will be unwrapped, set minAmount to 0
+        [ActionConstants.ADDRESS_THIS, 0],
+      );
+      inputs.push(unwrapInput);
+    }
+    // wrap if src token was unwrapped
+    if (isWethSrc && isEthPoolForSrc) {
+      types.push('uint8');
+      commands.push(Commands.WRAP_ETH);
+
+      const wrapInput = ethers.utils.defaultAbiCoder.encode(
+        ['address', 'uint256'],
+        [ActionConstants.ADDRESS_THIS, ActionConstants.CONTRACT_BALANCE],
+      );
+
+      inputs.push(wrapInput);
+    }
+
+    types.push('uint8');
+    commands.push(Commands.SWEEP);
+
+    const sweepInput = ethers.utils.defaultAbiCoder.encode(
+      // token, recipient, minAmount
+      ['address', 'address', 'uint256'],
+      [isETHAddress(srcToken) ? NULL_ADDRESS : srcToken, recipient, 0],
+    );
+
+    inputs.push(sweepInput);
+  }
+
   const command = ethers.utils.solidityPack(types, commands);
 
   return routerIface.encodeFunctionData('execute(bytes,bytes[])', [
@@ -204,13 +232,10 @@ function encodeInputForExecute(
 }
 
 function encodeSettle(
-  dexHelper: IDexHelper,
   srcToken: string,
   data: UniswapV4Data,
-  amountIn: ActionConstants | bigint,
+  wethAddr: string,
 ): string {
-  const wethAddr =
-    dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
   const isEthSrc = isETHAddress(srcToken);
   const isWethSrc = srcToken.toLowerCase() === wethAddr;
   const firstPool = data.path[0];
@@ -231,8 +256,8 @@ function encodeSettle(
         : (isEthSrc && isEthPool) || (isWethSrc && isEthPool)
         ? NULL_ADDRESS
         : srcToken,
-      amountIn,
-      isEthSrc && isWethPool ? false : true,
+      ActionConstants.OPEN_DELTA,
+      false, // we rely on srcToken transfer before swap, so no need to take funds from msg.sender
     ],
   );
 
@@ -240,15 +265,11 @@ function encodeSettle(
 }
 
 function encodeTake(
-  dexHelper: IDexHelper,
   destToken: string,
   data: UniswapV4Data,
   recipient: string,
-  amountOut: ActionConstants | bigint,
+  wethAddr: string,
 ) {
-  const wethAddr =
-    dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
-
   const isEthDest = isETHAddress(destToken);
   const isWethDest = destToken.toLowerCase() === wethAddr;
   const lastPool = data.path[data.path.length - 1];
@@ -271,7 +292,7 @@ function encodeTake(
       (isEthDest && isWethPool) || (isWethDest && isEthPool)
         ? ActionConstants.ADDRESS_THIS
         : recipient,
-      amountOut,
+      ActionConstants.OPEN_DELTA,
     ],
   );
 
@@ -286,7 +307,7 @@ export function swapExactInputSingleCalldata(
   amountIn: bigint,
   amountOutMinimum: bigint,
   recipient: Address,
-  dexHelper: IDexHelper,
+  weth: Address,
 ): string {
   const path = data.path[0];
   const poolKey = path.pool.key;
@@ -336,23 +357,11 @@ export function swapExactInputSingleCalldata(
     ],
   );
 
-  const settle = encodeSettle(
-    dexHelper,
-    srcToken,
-    data,
-    ActionConstants.OPEN_DELTA,
-  );
+  const settle = encodeSettle(srcToken, data, weth);
 
-  const take = encodeTake(
-    dexHelper,
-    destToken,
-    data,
-    recipient,
-    ActionConstants.OPEN_DELTA,
-  );
+  const take = encodeTake(destToken, data, recipient, weth);
 
   return encodeInputForExecute(
-    dexHelper,
     srcToken,
     destToken,
     data,
@@ -362,6 +371,7 @@ export function swapExactInputSingleCalldata(
     recipient,
     actions,
     [swap, settle, take],
+    weth,
   );
 }
 
@@ -373,7 +383,7 @@ export function swapExactInputCalldata(
   amountIn: bigint,
   amountOutMinimum: bigint,
   recipient: Address,
-  dexHelper: IDexHelper,
+  weth: Address,
 ): string {
   const actions = encodeActions([
     Actions.SWAP_EXACT_IN,
@@ -436,22 +446,10 @@ export function swapExactInputCalldata(
     ],
   );
 
-  const settle = encodeSettle(
-    dexHelper,
-    srcToken,
-    data,
-    ActionConstants.OPEN_DELTA,
-  );
-  const take = encodeTake(
-    dexHelper,
-    destToken,
-    data,
-    recipient,
-    ActionConstants.OPEN_DELTA,
-  );
+  const settle = encodeSettle(srcToken, data, weth);
+  const take = encodeTake(destToken, data, recipient, weth);
 
   return encodeInputForExecute(
-    dexHelper,
     srcToken,
     destToken,
     data,
@@ -461,6 +459,7 @@ export function swapExactInputCalldata(
     recipient,
     actions,
     [swap, settle, take],
+    weth,
   );
 }
 
@@ -472,7 +471,7 @@ export function swapExactOutputSingleCalldata(
   amountIn: bigint,
   amountOut: bigint,
   recipient: Address,
-  dexHelper: IDexHelper,
+  weth: Address,
 ): string {
   const path = data.path[0];
   const poolKey = path.pool.key;
@@ -521,22 +520,10 @@ export function swapExactOutputSingleCalldata(
     ],
   );
 
-  const settle = encodeSettle(
-    dexHelper,
-    srcToken,
-    data,
-    ActionConstants.OPEN_DELTA,
-  );
-  const take = encodeTake(
-    dexHelper,
-    destToken,
-    data,
-    recipient,
-    ActionConstants.OPEN_DELTA,
-  );
+  const settle = encodeSettle(srcToken, data, weth);
+  const take = encodeTake(destToken, data, recipient, weth);
 
   return encodeInputForExecute(
-    dexHelper,
     srcToken,
     destToken,
     data,
@@ -546,6 +533,7 @@ export function swapExactOutputSingleCalldata(
     recipient,
     actions,
     [swap, settle, take],
+    weth,
   );
 }
 
@@ -557,7 +545,7 @@ export function swapExactOutputCalldata(
   amountIn: bigint,
   amountOut: bigint,
   recipient: Address,
-  dexHelper: IDexHelper,
+  weth: string,
 ): string {
   const actions = encodeActions([
     Actions.SWAP_EXACT_OUT,
@@ -621,22 +609,10 @@ export function swapExactOutputCalldata(
     ],
   );
 
-  const settle = encodeSettle(
-    dexHelper,
-    srcToken,
-    data,
-    ActionConstants.OPEN_DELTA,
-  );
-  const take = encodeTake(
-    dexHelper,
-    destToken,
-    data,
-    recipient,
-    ActionConstants.OPEN_DELTA,
-  );
+  const settle = encodeSettle(srcToken, data, weth);
+  const take = encodeTake(destToken, data, recipient, weth);
 
   return encodeInputForExecute(
-    dexHelper,
     srcToken,
     destToken,
     data,
@@ -646,5 +622,6 @@ export function swapExactOutputCalldata(
     recipient,
     actions,
     [swap, settle, take],
+    weth,
   );
 }

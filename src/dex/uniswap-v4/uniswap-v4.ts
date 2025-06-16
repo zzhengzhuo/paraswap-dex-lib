@@ -19,7 +19,7 @@ import { Pool, PoolPairsInfo, UniswapV4Data } from './types';
 import { BytesLike } from 'ethers';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import QuoterAbi from '../../abi/uniswap-v4/quoter.abi.json';
-import { BI_MAX_UINT128, BI_POWS } from '../../bigint-constants';
+import { BI_POWS } from '../../bigint-constants';
 import { Interface } from '@ethersproject/abi';
 import { generalDecoder } from '../../lib/decoders';
 import { MultiResult } from '../../lib/multi-wrapper';
@@ -53,6 +53,8 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(UniswapV4Config);
 
+  private wethAddress: string;
+
   constructor(
     protected network: Network,
     dexKey: string,
@@ -64,6 +66,9 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     super(dexHelper, dexKey);
     this.logger = dexHelper.getLogger(dexKey);
     this.quoterIface = new Interface(QuoterAbi);
+
+    this.wethAddress =
+      this.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
 
     this.poolManager = new UniswapV4PoolManager(
       dexHelper,
@@ -175,8 +180,6 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     const reqId = Math.floor(Math.random() * 10000);
     // const getPricesVolumeStart = Date.now();
 
-    const wethAddr =
-      this.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
     let pools: Pool[] = await this.poolManager.getAvailablePoolsForPair(
       from.address.toLowerCase(),
       to.address.toLowerCase(),
@@ -193,17 +196,18 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       const fromAddress = from.address.toLowerCase();
       const poolCurrency0 = pool.key.currency0;
 
-      const isFromETH = isETHAddress(fromAddress);
-      const isFromWETH = fromAddress === wethAddr;
+      const isFromEth = isETHAddress(fromAddress);
+      const isFromWeth = fromAddress === this.wethAddress;
 
-      const poolIsETH = poolCurrency0 === NULL_ADDRESS;
-      const poolIsWETH = poolCurrency0 === wethAddr;
+      const currency0IsEth = poolCurrency0 === NULL_ADDRESS;
+      const currency0IsWeth = poolCurrency0 === this.wethAddress;
 
       const zeroForOne =
         fromAddress === poolCurrency0 ||
-        (isFromETH && poolIsETH) || // ETH is src and native ETH pool
-        (isFromETH && poolIsWETH) || // ETH is src and WETH pool
-        (isFromWETH && poolIsETH); // WETH is src and native ETH pool
+        (isFromEth && currency0IsEth) || // ETH is src and native ETH pool
+        (isFromEth && currency0IsWeth) || // ETH is src and WETH pool
+        (isFromWeth && currency0IsEth); // WETH is src and native ETH pool
+      // WETH is src and WETH pool is handled in fromAddress === poolCurrency0 case
 
       const eventPool = await this.poolManager.getEventPool(
         poolId,
@@ -411,7 +415,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       amount1: bigint,
       amount2: bigint,
       recipient: Address,
-      dexHelper: IDexHelper,
+      weth: Address,
     ) => string;
 
     if (data.path.length === 1 && side === SwapSide.SELL) {
@@ -439,7 +443,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       BigInt(srcAmount),
       side === SwapSide.SELL ? 0n : BigInt(destAmount),
       recipient,
-      this.dexHelper,
+      this.wethAddress,
     );
 
     return {
@@ -448,8 +452,11 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       dexFuncHasRecipient: true,
       exchangeData,
       targetExchange: this.routerAddress,
-      permit2Approval: true,
       returnAmountPos: undefined,
+      transferSrcTokenBeforeSwap: isETHAddress(srcToken)
+        ? undefined
+        : this.routerAddress,
+      skipApproval: true,
     };
   }
 
