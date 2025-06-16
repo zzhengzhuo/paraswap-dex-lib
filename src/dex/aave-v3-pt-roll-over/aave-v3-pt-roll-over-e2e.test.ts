@@ -115,7 +115,7 @@ function testForNetwork(
                   throw error;
                 }
               }
-            });
+            }, 60000); // 60 second timeout for API calls and simulation
           });
         });
       }),
