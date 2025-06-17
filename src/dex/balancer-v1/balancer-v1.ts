@@ -53,7 +53,7 @@ const fetchAllPoolsQuery = `query {
     pools(first: ${MAX_POOL_CNT.toString()} 
         orderBy: liquidity
         orderDirection: desc
-        where: {liquidity_gt: ${MIN_USD_LIQUIDITY_TO_FETCH.toString()}}) {
+        where: {liquidity_gt: ${MIN_USD_LIQUIDITY_TO_FETCH.toString()}, publicSwap:true}) {
           id
           swapFee
           totalWeight
