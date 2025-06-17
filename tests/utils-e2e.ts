@@ -304,6 +304,10 @@ export async function testPriceRoute(priceRoute: OptimalRate) {
   const dexKeys = extractAllDexsFromRoute(priceRoute.bestRoute);
   console.log('Dexes: ', dexKeys.join(', '));
   const sdk: IParaSwapSDK = new APIParaswapSDK(network, dexKeys, '');
+  if (sdk instanceof APIParaswapSDK) {
+    // initialize as some of the dexs need states to build transaction (e.g. balancer-v2)
+    await sdk?.initializePricing();
+  }
   // log the route for visibility
   console.log('Price Route:', JSON.stringify(priceRoute, null, 2));
   // prepare state overrides
