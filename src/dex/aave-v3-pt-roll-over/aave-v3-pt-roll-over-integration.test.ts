@@ -83,9 +83,8 @@ const checkOnChainPricing = async (
         expectedPrices.push(0n);
       } else {
         const outputAmount = (amount * exchangeRate) / BigInt(1e18);
-        // Apply the same slippage used in getPricesVolume (0.1%)
-        const outputWithSlippage = (outputAmount * 999n) / 1000n;
-        const effectivePrice = (outputWithSlippage * BigInt(1e18)) / amount;
+        // Removed the slippage adjustment (was previously 0.1%)
+        const effectivePrice = (outputAmount * BigInt(1e18)) / amount;
         expectedPrices.push(effectivePrice);
       }
     }
