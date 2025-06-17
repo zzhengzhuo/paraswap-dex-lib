@@ -14,26 +14,29 @@ const OLD_MARKET_ADDRESS = '0xb162b764044697cf03617c2efbcb1f42e31e4766';
 const NEW_MARKET_ADDRESS = '0x4339ffe2b7592dc783ed13cce310531ab366deac';
 // Pendle Oracle https://etherscan.io/address/0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2
 const ORACLE_ADDRESS = '0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2';
+// sUSDe Token https://etherscan.io/address/0x9D39A5DE30e57443BfF2A8307A4256c8797A3497
+const UNDERLYING_TOKEN_ADDRESS = '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497';
 
 export const AaveV3PtRollOverConfig: DexConfigMap<DexParams> = {
   AaveV3PtRollOver: {
     [Network.MAINNET]: {
-      chainId: 1,
-      pendleSdkBaseUrl: 'https://api-v2.pendle.finance/core',
-      defaultSlippageForQuoting: 0.01, // 1%
       pendleRouterAddress: PENDLE_ROUTER_ADDRESS,
-      oldPtAddress: {
+      oldPendleToken: {
         address: OLD_PT_ADDRESS,
         decimals: 18,
+        name: 'PT-sUSDe-29MAY2025',
+        expiry: 1748476800, // May 29, 2025
       },
-      newPtAddress: {
+      newPendleToken: {
         address: NEW_PT_ADDRESS,
         decimals: 18,
+        name: 'PT-sUSDe-31JUL2025',
+        expiry: 1753574400, // July 31, 2025
       },
       oldMarketAddress: OLD_MARKET_ADDRESS,
       newMarketAddress: NEW_MARKET_ADDRESS,
       oracleAddress: ORACLE_ADDRESS,
-      decimals: 18,
+      underlyingAssetAddress: UNDERLYING_TOKEN_ADDRESS,
     },
   },
 };

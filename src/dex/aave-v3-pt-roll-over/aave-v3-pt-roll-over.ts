@@ -1,4 +1,3 @@
-import { AsyncOrSync } from 'ts-essentials';
 import {
   Token,
   Address,
@@ -9,7 +8,7 @@ import {
   Logger,
   NumberAsString,
 } from '../../types';
-import { SwapSide, Network } from '../../constants';
+import { SwapSide, Network, NULL_ADDRESS } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork } from '../../utils';
 import { Context, IDex } from '../../dex/idex';
@@ -19,6 +18,15 @@ import { SimpleExchange } from '../simple-exchange';
 import { AaveV3PtRollOverConfig } from './config';
 import { Interface } from '@ethersproject/abi';
 import PENDLE_ORACLE_ABI from '../../abi/PendleOracle.json';
+import {
+  AAVE_V3_PT_ROLL_OVER_GAS_COST,
+  DEFAULT_SLIPPAGE_FOR_QUOTTING,
+  PENDLE_API_URL,
+} from './constants';
+import { BI_POWS } from '../../bigint-constants';
+import { MultiCallParams } from '../../lib/multi-wrapper';
+import { oracleStateDecoder, ptToAssetRateDecoder } from './utils';
+import { extractReturnAmountPosition } from '../../executor/utils';
 
 export class AaveV3PtRollOver
   extends SimpleExchange
@@ -41,7 +49,7 @@ export class AaveV3PtRollOver
     readonly network: Network,
     readonly dexKey: string,
     readonly dexHelper: IDexHelper,
-    protected adapters = {},
+    protected unitPrice = BI_POWS[18],
   ) {
     super(dexHelper, dexKey);
     this.config = AaveV3PtRollOverConfig[dexKey][network];
@@ -56,7 +64,6 @@ export class AaveV3PtRollOver
   async initializePricing(blockNumber: number): Promise<void> {
     // Try to fetch real market data from Pendle API
     await this.fetchRealMarketData();
-    this.logger.info('Successfully initialized Pendle markets cache');
   }
 
   /**
@@ -66,9 +73,6 @@ export class AaveV3PtRollOver
   private async fetchRealMarketData(): Promise<void> {
     // For now, use static configuration since market discovery endpoints
     // may require authentication or different API structure
-    this.logger.info(
-      'Using static market configuration for Pendle integration',
-    );
     this.populateFallbackMarkets();
   }
 
@@ -80,21 +84,25 @@ export class AaveV3PtRollOver
     const configuredMarkets: PendleSDKMarket[] = [
       {
         address: this.config.oldMarketAddress,
-        ptAddress: this.config.oldPtAddress.address,
-        ytAddress: '0x0000000000000000000000000000000000000000', // YT address not needed for rollover
-        underlyingAssetAddress: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', // sUSDe address
-        name: 'PT sUSDe 29 May 2025',
-        expiry: 1748476800, // May 29, 2025
-        chainId: this.config.chainId,
+        ptAddress: this.config.oldPendleToken.address,
+        ptDecimals: this.config.oldPendleToken.decimals,
+        ytAddress: NULL_ADDRESS, // YT address not needed for rollover
+        underlyingAssetAddress:
+          this.config.underlyingAssetAddress.toLowerCase(),
+        name: this.config.oldPendleToken.name,
+        expiry: this.config.oldPendleToken.expiry,
+        chainId: this.network,
       },
       {
         address: this.config.newMarketAddress,
-        ptAddress: this.config.newPtAddress.address,
-        ytAddress: '0x0000000000000000000000000000000000000000', // YT address not needed for rollover
-        underlyingAssetAddress: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', // sUSDe address
-        name: 'PT sUSDe 31 Jul 2025',
-        expiry: 1753574400, // July 31, 2025
-        chainId: this.config.chainId,
+        ptAddress: this.config.newPendleToken.address,
+        ptDecimals: this.config.newPendleToken.decimals,
+        ytAddress: NULL_ADDRESS, // YT address not needed for rollover
+        underlyingAssetAddress:
+          this.config.underlyingAssetAddress.toLowerCase(),
+        name: this.config.newPendleToken.name,
+        expiry: this.config.newPendleToken.expiry,
+        chainId: this.network,
       },
     ];
 
@@ -103,7 +111,7 @@ export class AaveV3PtRollOver
     });
 
     this.logger.info(
-      `Populated ${this.marketsCache.size} markets from static configuration`,
+      `${this.dexKey}-${this.network}: Populated ${this.marketsCache.size} markets from static configuration`,
     );
   }
 
@@ -130,97 +138,64 @@ export class AaveV3PtRollOver
     blockNumber: number,
     duration: number = 1800,
   ): Promise<[boolean, boolean, bigint, bigint]> {
-    try {
-      // Prepare all calls
-      const calls = [
-        // Source market oracle state check
-        {
-          target: this.config.oracleAddress,
-          callData: this.oracleInterface.encodeFunctionData('getOracleState', [
-            srcMarketAddress,
-            duration,
-          ]),
-        },
-        // Destination market oracle state check
-        {
-          target: this.config.oracleAddress,
-          callData: this.oracleInterface.encodeFunctionData('getOracleState', [
-            destMarketAddress,
-            duration,
-          ]),
-        },
-        // Source market PT to asset rate
-        {
-          target: this.config.oracleAddress,
-          callData: this.oracleInterface.encodeFunctionData(
-            'getPtToAssetRate',
-            [srcMarketAddress, duration],
-          ),
-        },
-        // Destination market PT to asset rate
-        {
-          target: this.config.oracleAddress,
-          callData: this.oracleInterface.encodeFunctionData(
-            'getPtToAssetRate',
-            [destMarketAddress, duration],
-          ),
-        },
-      ];
+    // Prepare all calls
+    const calls: MultiCallParams<boolean | bigint>[] = [
+      // Source market oracle state check
+      {
+        target: this.config.oracleAddress,
+        callData: this.oracleInterface.encodeFunctionData('getOracleState', [
+          srcMarketAddress,
+          duration,
+        ]),
+        decodeFunction: oracleStateDecoder,
+      },
+      // Destination market oracle state check
+      {
+        target: this.config.oracleAddress,
+        callData: this.oracleInterface.encodeFunctionData('getOracleState', [
+          destMarketAddress,
+          duration,
+        ]),
+        decodeFunction: oracleStateDecoder,
+      },
+      // Source market PT to asset rate
+      {
+        target: this.config.oracleAddress,
+        callData: this.oracleInterface.encodeFunctionData('getPtToAssetRate', [
+          srcMarketAddress,
+          duration,
+        ]),
+        decodeFunction: ptToAssetRateDecoder,
+      },
+      // Destination market PT to asset rate
+      {
+        target: this.config.oracleAddress,
+        callData: this.oracleInterface.encodeFunctionData('getPtToAssetRate', [
+          destMarketAddress,
+          duration,
+        ]),
+        decodeFunction: ptToAssetRateDecoder,
+      },
+    ];
 
-      // Execute all calls in one multicall
-      const data = await this.dexHelper.multiContract.methods
-        .aggregate(calls)
-        .call({}, blockNumber);
+    // Execute all calls in one multicall
+    const [
+      srcOracleReady,
+      destOracleReady,
+      srcPtToAssetRate,
+      destPtToAssetRate,
+    ] = await this.dexHelper.multiWrapper.tryAggregate(
+      true,
+      calls,
+      blockNumber,
+    );
 
-      // Decode results
-      const [
-        srcOracleStateResult,
-        destOracleStateResult,
-        srcRateResult,
-        destRateResult,
-      ] = data.returnData;
-
-      // Decode source oracle state
-      const [srcIncreaseCardinalityRequired, , srcOldestObservationSatisfied] =
-        this.oracleInterface.decodeFunctionResult(
-          'getOracleState',
-          srcOracleStateResult,
-        );
-      const srcOracleReady =
-        srcOldestObservationSatisfied && !srcIncreaseCardinalityRequired;
-
-      // Decode destination oracle state
-      const [
-        destIncreaseCardinalityRequired,
-        ,
-        destOldestObservationSatisfied,
-      ] = this.oracleInterface.decodeFunctionResult(
-        'getOracleState',
-        destOracleStateResult,
-      );
-      const destOracleReady =
-        destOldestObservationSatisfied && !destIncreaseCardinalityRequired;
-
-      // Decode rates
-      const [srcRate] = this.oracleInterface.decodeFunctionResult(
-        'getPtToAssetRate',
-        srcRateResult,
-      );
-      const [destRate] = this.oracleInterface.decodeFunctionResult(
-        'getPtToAssetRate',
-        destRateResult,
-      );
-
-      return [
-        srcOracleReady,
-        destOracleReady,
-        BigInt(srcRate.toString()),
-        BigInt(destRate.toString()),
-      ];
-    } catch (error) {
-      this.logger.error('Failed to batch oracle calls:', error);
-      throw error; // Propagate error instead of using fallback values
-    }
+    return [
+      srcOracleReady.returnData as boolean,
+      destOracleReady.returnData as boolean,
+      srcPtToAssetRate.returnData as bigint,
+      destPtToAssetRate.returnData as bigint,
+    ];
   }
 
   async getPoolIdentifiers(
@@ -233,21 +208,10 @@ export class AaveV3PtRollOver
       return [];
     }
 
-    // Check for undefined tokens first
-    if (!srcToken || !destToken) {
-      this.logger.error('Source or destination token is undefined');
-      return [];
-    }
+    const srcTokenAddress = srcToken.address.toLowerCase();
+    const destTokenAddress = destToken.address.toLowerCase();
 
-    // Use wrapETH like other DEXs to handle ETH properly
-    const _srcToken = this.dexHelper.config.wrapETH(srcToken);
-    const _destToken = this.dexHelper.config.wrapETH(destToken);
-
-    const srcTokenAddress = _srcToken.address;
-    const destTokenAddress = _destToken.address;
-
-    if (!srcTokenAddress || !destTokenAddress) {
-      this.logger.error('Source or destination token address is undefined');
+    if (srcTokenAddress === destTokenAddress) {
       return [];
     }
 
@@ -261,13 +225,12 @@ export class AaveV3PtRollOver
 
     // Ensure both PTs are for the same underlying asset
     if (
-      srcMarket.underlyingAssetAddress.toLowerCase() !==
-      destMarket.underlyingAssetAddress.toLowerCase()
+      srcMarket.underlyingAssetAddress !== destMarket.underlyingAssetAddress
     ) {
       return [];
     }
 
-    return [`${srcMarket.address}:${destMarket.address}`];
+    return [`${this.dexKey}_${srcMarket.address}_${destMarket.address}`];
   }
 
   async getPricesVolume(
@@ -282,23 +245,11 @@ export class AaveV3PtRollOver
       return null;
     }
 
-    // Check for undefined tokens first
-    if (!srcToken || !destToken) {
-      this.logger.error('Source or destination token is undefined');
-      return null;
-    }
-
-    // Use wrapETH like other DEXs to handle ETH properly
     const _srcToken = this.dexHelper.config.wrapETH(srcToken);
     const _destToken = this.dexHelper.config.wrapETH(destToken);
 
     const srcTokenAddress = _srcToken.address;
     const destTokenAddress = _destToken.address;
-
-    if (!srcTokenAddress || !destTokenAddress) {
-      this.logger.error('Source or destination token address is undefined');
-      return null;
-    }
 
     // Get market details
     const srcMarket = this.getMarketForPt(srcTokenAddress);
@@ -308,84 +259,81 @@ export class AaveV3PtRollOver
       return null;
     }
 
-    try {
-      // Batch all oracle calls using multicall for better performance
-      const [
-        srcOracleReady,
-        destOracleReady,
-        srcPtToAssetRate,
-        destPtToAssetRate,
-      ] = await this.batchOracleCallsMulticall(
-        srcMarket.address,
-        destMarket.address,
-        blockNumber,
+    // Batch all oracle calls using multicall for better performance
+    const [
+      srcOracleReady,
+      destOracleReady,
+      srcPtToAssetRate,
+      destPtToAssetRate,
+    ] = await this.batchOracleCallsMulticall(
+      srcMarket.address,
+      destMarket.address,
+      blockNumber,
+    );
+
+    if (!srcOracleReady || !destOracleReady) {
+      this.logger.error(
+        `${this.dexKey}-${this.network}: ${srcOracleReady ? '' : 'src'}${
+          destOracleReady ? '' : 'dest'
+        } oracle not ready`,
       );
-
-      if (!srcOracleReady || !destOracleReady) {
-        this.logger.warn(
-          'Oracle not ready for one or both markets, using fallback pricing',
-        );
-      }
-
-      const prices: bigint[] = [];
-      const volumes: bigint[] = [];
-
-      // Calculate exchange rate: srcPT -> asset -> destPT
-      // srcPtAmount * srcPtToAssetRate / destPtToAssetRate = destPtAmount
-      const exchangeRate =
-        (srcPtToAssetRate * BigInt(1e18)) / destPtToAssetRate;
-
-      for (const amount of amounts) {
-        if (amount === 0n) {
-          prices.push(0n);
-          volumes.push(0n);
-          continue;
-        }
-
-        // Calculate output amount
-        const outputAmount = (amount * exchangeRate) / BigInt(1e18);
-
-        // Apply a small slippage for realistic pricing (0.1%)
-        const outputWithSlippage = (outputAmount * 999n) / 1000n;
-
-        if (outputWithSlippage > 0n) {
-          // Price is output/input ratio
-          const effectivePrice = (outputWithSlippage * BigInt(1e18)) / amount;
-          prices.push(effectivePrice);
-          volumes.push(outputWithSlippage);
-        } else {
-          prices.push(0n);
-          volumes.push(0n);
-        }
-      }
-
-      const data: AaveV3PtRollOverData = {
-        srcPtAddress: srcTokenAddress,
-        destPtAddress: destTokenAddress,
-        srcMarketAddress: srcMarket.address,
-        destMarketAddress: destMarket.address,
-        sdkQuotedPtOut:
-          volumes.length > 0
-            ? volumes[volumes.length - 1].toString()
-            : undefined,
-        blockNumber,
-      };
-
-      return [
-        {
-          prices,
-          unit: BigInt(1e18),
-          data,
-          poolAddresses: [srcMarket.address],
-          exchange: this.dexKey,
-          gasCost: this.getCalldataGasCost(),
-          poolIdentifier: `${srcMarket.address}:${destMarket.address}`,
-        },
-      ];
-    } catch (error) {
-      this.logger.error('Failed to get prices and volumes:', error);
       return null;
     }
+
+    const prices: bigint[] = [];
+    const volumes: bigint[] = [];
+
+    // Calculate exchange rate: srcPT -> asset -> destPT
+    // srcPtAmount * srcPtToAssetRate / destPtToAssetRate = destPtAmount
+    const exchangeRate =
+      (srcPtToAssetRate * this.unitPrice) / destPtToAssetRate;
+
+    for (const amount of amounts) {
+      if (amount === 0n) {
+        prices.push(0n);
+        volumes.push(0n);
+        continue;
+      }
+
+      // Calculate output amount
+      const outputAmount = (amount * exchangeRate) / BigInt(this.unitPrice);
+
+      // Apply a small slippage for realistic pricing (0.1%)
+      const outputWithSlippage = (outputAmount * 999n) / 1000n;
+
+      if (outputWithSlippage > 0n) {
+        // Price is output/input ratio
+        const effectivePrice =
+          (outputWithSlippage * BigInt(this.unitPrice)) / amount;
+        prices.push(effectivePrice);
+        volumes.push(outputWithSlippage);
+      } else {
+        prices.push(0n);
+        volumes.push(0n);
+      }
+    }
+
+    const data: AaveV3PtRollOverData = {
+      srcPtAddress: srcTokenAddress,
+      destPtAddress: destTokenAddress,
+      srcMarketAddress: srcMarket.address,
+      destMarketAddress: destMarket.address,
+      sdkQuotedPtOut:
+        volumes.length > 0 ? volumes[volumes.length - 1].toString() : undefined,
+      blockNumber,
+    };
+
+    return [
+      {
+        prices,
+        unit: this.unitPrice,
+        data,
+        poolAddresses: [srcMarket.address],
+        exchange: this.dexKey,
+        gasCost: AAVE_V3_PT_ROLL_OVER_GAS_COST,
+        poolIdentifier: `${srcMarket.address}:${destMarket.address}`,
+      },
+    ];
   }
 
   getCalldataGasCost(): number | number[] {
@@ -437,18 +385,15 @@ export class AaveV3PtRollOver
           address: cachedMarket.address,
           connectorTokens: [
             {
-              address: ptAddress,
-              decimals: 18,
+              address: cachedMarket.ptAddress,
+              decimals: cachedMarket.ptDecimals,
             },
           ],
-          liquidityUSD: 1000000, // Placeholder - could fetch real liquidity from oracle
+          liquidityUSD: 1000000000, // Just returning a big number so this DEX will be preferred
         });
       }
     }
 
-    this.logger.info(
-      `Found ${rolloverOpportunities.length} rollover opportunities for PT ${tokenAddress}`,
-    );
     return rolloverOpportunities.slice(0, limit);
   }
 
@@ -457,9 +402,6 @@ export class AaveV3PtRollOver
     if (this.marketsCache.size === 0) {
       await this.fetchRealMarketData();
     }
-
-    // No need to update since we're using on-chain oracle
-    this.logger.info('Pool state update not needed for oracle-based pricing');
   }
 
   async getDexParam(
@@ -491,18 +433,13 @@ export class AaveV3PtRollOver
     // Call Pendle SDK roll-over-pt endpoint for PT rollover
     const rollOverParams = {
       receiver: recipient,
-      slippage: this.config.defaultSlippageForQuoting,
+      slippage: DEFAULT_SLIPPAGE_FOR_QUOTTING,
       dstMarket: data.destMarketAddress,
       ptAmount: srcAmount,
     };
 
-    this.logger.info(
-      'Calling Pendle SDK roll-over-pt API for PT rollover:',
-      rollOverParams,
-    );
-
     const response = await this.callPendleSdkApi(
-      `/v1/sdk/${this.config.chainId}/markets/${data.srcMarketAddress}/roll-over-pt`,
+      `/v1/sdk/${this.network}/markets/${data.srcMarketAddress}/roll-over-pt`,
       rollOverParams,
     );
 
@@ -525,23 +462,12 @@ export class AaveV3PtRollOver
       );
     }
 
-    // Extract additional response data
-    const responseData = response.data || response;
-
-    this.logger.info('Pendle SDK transaction constructed successfully:', {
-      to: txData.to,
-      dataLength: txData.data?.length,
-      value: txData.value,
-      amountLpOut: responseData.amountLpOut,
-      priceImpact: responseData.priceImpact,
-    });
-
     return {
       targetExchange: txData.to, // This should be the Pendle Router address
       exchangeData: txData.data, // The actual encoded transaction data
       needWrapNative: false,
       dexFuncHasRecipient: true,
-      returnAmountPos: undefined, // Pendle handles return amount internally
+      returnAmountPos: 0,
     };
   }
 
@@ -551,15 +477,12 @@ export class AaveV3PtRollOver
   private async callPendleSdkApi(endpoint: string, params: any): Promise<any> {
     try {
       // Build URL with query parameters for GET requests
-      const url = new URL(`${this.config.pendleSdkBaseUrl}${endpoint}`);
+      const url = new URL(`${PENDLE_API_URL}${endpoint}`);
       Object.keys(params).forEach(key => {
         if (params[key] !== undefined && params[key] !== null) {
           url.searchParams.append(key, params[key].toString());
         }
       });
-
-      this.logger.info(`Calling Pendle SDK: ${url.toString()}`);
-      this.logger.debug(`Request params:`, params);
 
       const response = await this.dexHelper.httpRequest.get(
         url.toString(),
@@ -569,8 +492,6 @@ export class AaveV3PtRollOver
         },
       );
 
-      this.logger.debug(`Response received:`, response);
-
       const responseData = response as any;
       return {
         success: true,
@@ -578,13 +499,10 @@ export class AaveV3PtRollOver
         tx: responseData.tx || responseData.data?.tx, // Extract transaction data
       };
     } catch (error: any) {
-      this.logger.error(`Pendle SDK API call failed for ${endpoint}:`, error);
-
-      // Log more details about the error
-      if (error.response) {
-        this.logger.error(`Response status: ${error.response.status}`);
-        this.logger.error(`Response data:`, error.response.data);
-      }
+      this.logger.error(
+        `${this.dexKey}-${this.network}: Pendle SDK API call failed for ${endpoint}:`,
+        error,
+      );
 
       return {
         success: false,
