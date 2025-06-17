@@ -281,7 +281,6 @@ export class AaveV3PtRollOver
     }
 
     const prices: bigint[] = [];
-    const volumes: bigint[] = [];
 
     // Calculate exchange rate: srcPT -> asset -> destPT
     // srcPtAmount * srcPtToAssetRate / destPtToAssetRate = destPtAmount
@@ -291,36 +290,20 @@ export class AaveV3PtRollOver
     for (const amount of amounts) {
       if (amount === 0n) {
         prices.push(0n);
-        volumes.push(0n);
         continue;
       }
 
       // Calculate output amount
       const outputAmount = (amount * exchangeRate) / BigInt(this.unitPrice);
 
-      // Apply a small slippage for realistic pricing (0.1%)
-      const outputWithSlippage = (outputAmount * 999n) / 1000n;
-
-      if (outputWithSlippage > 0n) {
-        // Price is output/input ratio
-        const effectivePrice =
-          (outputWithSlippage * BigInt(this.unitPrice)) / amount;
-        prices.push(effectivePrice);
-        volumes.push(outputWithSlippage);
-      } else {
-        prices.push(0n);
-        volumes.push(0n);
-      }
+      // Price is output/input ratio
+      const effectivePrice = (outputAmount * BigInt(this.unitPrice)) / amount;
+      prices.push(effectivePrice);
     }
 
     const data: AaveV3PtRollOverData = {
-      srcPtAddress: srcTokenAddress,
-      destPtAddress: destTokenAddress,
       srcMarketAddress: srcMarket.address,
       destMarketAddress: destMarket.address,
-      sdkQuotedPtOut:
-        volumes.length > 0 ? volumes[volumes.length - 1].toString() : undefined,
-      blockNumber,
     };
 
     return [
@@ -417,17 +400,6 @@ export class AaveV3PtRollOver
   ): Promise<DexExchangeParam> {
     if (side === SwapSide.BUY) {
       throw new Error('Buy side not supported for PT rollover');
-    }
-
-    const srcTokenAddress = srcToken.toLowerCase();
-    const destTokenAddress = destToken.toLowerCase();
-
-    // Validate this is the expected rollover
-    if (
-      srcTokenAddress !== data.srcPtAddress.toLowerCase() ||
-      destTokenAddress !== data.destPtAddress.toLowerCase()
-    ) {
-      throw new Error('Token addresses do not match data');
     }
 
     // Call Pendle SDK roll-over-pt endpoint for PT rollover

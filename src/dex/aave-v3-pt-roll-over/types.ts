@@ -13,12 +13,8 @@ export type PendleSDKMarket = {
 };
 
 export type AaveV3PtRollOverData = {
-  srcPtAddress: Address;
-  destPtAddress: Address;
   srcMarketAddress: Address;
   destMarketAddress: Address;
-  sdkQuotedPtOut?: string;
-  blockNumber: number;
 };
 
 export type PendleToken = {
