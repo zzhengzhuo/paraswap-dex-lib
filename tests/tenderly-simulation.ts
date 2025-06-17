@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ETHER_ADDRESS } from '../src/constants';
+import { merge } from 'lodash';
 
 const TENDERLY_TOKEN = process.env.TENDERLY_TOKEN!;
 const TENDERLY_ACCOUNT_ID = process.env.TENDERLY_ACCOUNT_ID!;
@@ -27,6 +28,7 @@ interface TokenStorageSlots {
   allowanceSlot: string;
   isVyper?: boolean;
   stateProxy?: string;
+  additionalOverrides?: StateOverride;
 }
 
 interface SimulateTransactionRequest {
@@ -726,6 +728,10 @@ export class TenderlySimulator {
     stateOverride[address].storage ||= {};
     stateOverride[address].storage[slotToOverride] =
       ethers.utils.defaultAbiCoder.encode(['uint'], [amount]);
+
+    if (tokenSlots.additionalOverrides) {
+      merge(stateOverride, tokenSlots.additionalOverrides);
+    }
   }
 
   /**
@@ -760,5 +766,9 @@ export class TenderlySimulator {
     stateOverride[address].storage ||= {};
     stateOverride[address].storage[slotToOverride] =
       ethers.utils.defaultAbiCoder.encode(['uint'], [amount]);
+
+    if (tokenSlots.additionalOverrides) {
+      merge(stateOverride, tokenSlots.additionalOverrides);
+    }
   }
 }
