@@ -9,6 +9,6 @@ export type DexParams = {
   newTokenAddress: Address;
   newTokenRateMultiplier: bigint;
   oldToNewFunctionName: string;
-  newToOldFunctionName: string | undefined;
+  newToOldFunctionName?: string;
   converterIface: Interface;
 };
