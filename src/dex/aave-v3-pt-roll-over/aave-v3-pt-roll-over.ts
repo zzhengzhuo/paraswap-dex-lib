@@ -198,39 +198,48 @@ export class AaveV3PtRollOver
     ];
   }
 
-  async getPoolIdentifiers(
-    srcToken: Token,
-    destToken: Token,
-    side: SwapSide,
-    blockNumber: number,
-  ): Promise<string[]> {
-    if (side === SwapSide.BUY) {
-      return [];
-    }
-
-    const srcTokenAddress = srcToken.address.toLowerCase();
-    const destTokenAddress = destToken.address.toLowerCase();
-
-    if (srcTokenAddress === destTokenAddress) {
-      return [];
-    }
-
-    // Check if this is a valid PT-to-PT rollover
-    const srcMarket = this.getMarketForPt(srcTokenAddress);
-    const destMarket = this.getMarketForPt(destTokenAddress);
+  isAppropriatePair(srcToken: Token, destToken: Token): boolean {
+    // Check if both tokens are Pendle PTs
+    const srcMarket = this.getMarketForPt(srcToken.address);
+    const destMarket = this.getMarketForPt(destToken.address);
 
     if (!srcMarket || !destMarket) {
-      return [];
+      return false;
     }
 
     // Ensure both PTs are for the same underlying asset
     if (
       srcMarket.underlyingAssetAddress !== destMarket.underlyingAssetAddress
     ) {
+      return false;
+    }
+
+    // Only allow rollovers (PT to PT)
+    return srcToken.address !== destToken.address;
+  }
+
+  async getPoolIdentifiers(
+    srcToken: Token,
+    destToken: Token,
+    side: SwapSide,
+    blockNumber: number,
+  ): Promise<string[]> {
+    if (!this.isAppropriatePair(srcToken, destToken)) {
       return [];
     }
 
-    return [`${this.dexKey}_${srcMarket.address}_${destMarket.address}`];
+    return [this.getPoolIdentifier(srcToken, destToken)];
+  }
+
+  getPoolIdentifier(srcToken: Token, destToken: Token): string {
+    const srcMarket = this.getMarketForPt(srcToken.address);
+    const destMarket = this.getMarketForPt(destToken.address);
+
+    if (!srcMarket || !destMarket) {
+      return '';
+    }
+
+    return `${this.dexKey}_${srcMarket.address}_${destMarket.address}`.toLowerCase();
   }
 
   async getPricesVolume(
@@ -241,23 +250,13 @@ export class AaveV3PtRollOver
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<AaveV3PtRollOverData>> {
-    if (side === SwapSide.BUY) {
+    if (!this.isAppropriatePair(srcToken, destToken)) {
       return null;
     }
-
-    const _srcToken = this.dexHelper.config.wrapETH(srcToken);
-    const _destToken = this.dexHelper.config.wrapETH(destToken);
-
-    const srcTokenAddress = _srcToken.address;
-    const destTokenAddress = _destToken.address;
 
     // Get market details
-    const srcMarket = this.getMarketForPt(srcTokenAddress);
-    const destMarket = this.getMarketForPt(destTokenAddress);
-
-    if (!srcMarket || !destMarket) {
-      return null;
-    }
+    const srcMarket = this.getMarketForPt(srcToken.address)!;
+    const destMarket = this.getMarketForPt(destToken.address)!;
 
     // Batch all oracle calls using multicall for better performance
     const [
@@ -314,7 +313,7 @@ export class AaveV3PtRollOver
         poolAddresses: [srcMarket.address],
         exchange: this.dexKey,
         gasCost: AAVE_V3_PT_ROLL_OVER_GAS_COST,
-        poolIdentifier: `${srcMarket.address}:${destMarket.address}`,
+        poolIdentifier: this.getPoolIdentifier(srcToken, destToken),
       },
     ];
   }
@@ -396,10 +395,6 @@ export class AaveV3PtRollOver
     context: Context,
     executorAddress: Address,
   ): Promise<DexExchangeParam> {
-    if (side === SwapSide.BUY) {
-      throw new Error('Buy side not supported for PT rollover');
-    }
-
     // Call Pendle SDK roll-over-pt endpoint for PT rollover
     const rollOverParams = {
       receiver: recipient,
