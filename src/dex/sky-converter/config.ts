@@ -23,7 +23,7 @@ export const SkyConverterConfig: DexConfigMap<DexParams> = {
       oldTokenAddress: '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2',
       newTokenAddress: '0x56072C95FAA701256059aa122697B133aDEd9279',
       oldToNewFunctionName: 'mkrToSky',
-      newToOldFunctionName: 'skyToMkr',
+      newToOldFunctionName: undefined, // no longer possible to convert SKY back to MKR
       newTokenRateMultiplier: 24_000n, // constant, never to be updated
       converterIface: new Interface(MkrSkyConverterABI),
     },
