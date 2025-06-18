@@ -321,9 +321,7 @@ export class AaveV3PtRollOver
 
   getCalldataGasCost(): number | number[] {
     // Based on Pendle transaction complexity - simpler since we're using oracle
-    return (
-      CALLDATA_GAS_COST.ZERO_BYTE * 500 + CALLDATA_GAS_COST.NONZERO_BYTE * 200
-    );
+    return CALLDATA_GAS_COST.DEX_NO_PAYLOAD;
   }
 
   getAdapterParam(
