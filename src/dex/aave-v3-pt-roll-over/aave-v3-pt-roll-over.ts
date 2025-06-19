@@ -226,20 +226,7 @@ export class AaveV3PtRollOver
       return false;
     }
 
-    // Only allow rollovers (PT to PT)
-    if (srcToken.address === destToken.address) {
-      return false;
-    }
-
-    // Ensure source is old PT and destination is new PT
-    if (
-      !this.isOldPendleToken(srcToken.address) ||
-      !this.isNewPendleToken(destToken.address)
-    ) {
-      return false;
-    }
-
-    return true;
+    return this.isOldPendleToken(srcToken.address) && this.isNewPendleToken(destToken.address);
   }
 
   async getPoolIdentifiers(
