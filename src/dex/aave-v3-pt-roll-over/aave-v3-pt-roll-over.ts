@@ -293,11 +293,8 @@ export class AaveV3PtRollOver
       }
 
       // Calculate output amount
-      const outputAmount = (amount * exchangeRate) / BigInt(this.unitPrice);
-
-      // Price is output/input ratio
-      const effectivePrice = (outputAmount * BigInt(this.unitPrice)) / amount;
-      prices.push(effectivePrice);
+      const outputAmount = (amount * exchangeRate) / this.unitPrice;
+      prices.push(outputAmount);
     }
 
     const data: AaveV3PtRollOverData = {
