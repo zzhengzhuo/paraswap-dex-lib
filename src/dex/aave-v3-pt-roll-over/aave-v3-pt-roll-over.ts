@@ -126,12 +126,7 @@ export class AaveV3PtRollOver
   private getMarketForPt(ptAddress: Address): PendleSDKMarket | null {
     const normalizedAddress = ptAddress.toLowerCase();
 
-    // Check cache first
-    if (this.marketsCache.has(normalizedAddress)) {
-      return this.marketsCache.get(normalizedAddress)!;
-    }
-
-    return null;
+    return this.marketsCache.get(normalizedAddress) ?? null;
   }
 
   /**
