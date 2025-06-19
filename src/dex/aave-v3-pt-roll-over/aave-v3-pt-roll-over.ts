@@ -198,6 +198,18 @@ export class AaveV3PtRollOver
     ];
   }
 
+  isOldPendleToken(address: Address): boolean {
+    return (
+      address.toLowerCase() === this.config.oldPendleToken.address.toLowerCase()
+    );
+  }
+
+  isNewPendleToken(address: Address): boolean {
+    return (
+      address.toLowerCase() === this.config.newPendleToken.address.toLowerCase()
+    );
+  }
+
   isAppropriatePair(srcToken: Token, destToken: Token): boolean {
     // Check if both tokens are Pendle PTs
     const srcMarket = this.getMarketForPt(srcToken.address);
@@ -215,7 +227,19 @@ export class AaveV3PtRollOver
     }
 
     // Only allow rollovers (PT to PT)
-    return srcToken.address !== destToken.address;
+    if (srcToken.address === destToken.address) {
+      return false;
+    }
+
+    // Ensure source is old PT and destination is new PT
+    if (
+      !this.isOldPendleToken(srcToken.address) ||
+      !this.isNewPendleToken(destToken.address)
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   async getPoolIdentifiers(
