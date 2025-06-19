@@ -3,11 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { testE2E } from '../../../tests/utils-e2e';
-import {
-  Tokens,
-  Holders,
-  NativeTokenSymbols,
-} from '../../../tests/constants-e2e';
+import { Tokens, Holders } from '../../../tests/constants-e2e';
 import { Network, ContractMethod, SwapSide } from '../../constants';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
 import { generateConfig } from '../../config';
@@ -19,7 +15,6 @@ function testForNetwork(
   tokenBSymbol: string,
   tokenAAmount: string,
   tokenBAmount: string,
-  disableReverse?: boolean,
 ) {
   const provider = new StaticJsonRpcProvider(
     generateConfig(network).privateHttpProvider,
@@ -51,22 +46,19 @@ function testForNetwork(
                 provider,
               );
             });
-
-            if (!disableReverse) {
-              it(`${tokenBSymbol} -> ${tokenASymbol}`, async () => {
-                await testE2E(
-                  tokens[tokenBSymbol],
-                  tokens[tokenASymbol],
-                  holders[tokenBSymbol],
-                  side === SwapSide.SELL ? tokenBAmount : tokenAAmount,
-                  side,
-                  dexKey,
-                  contractMethod,
-                  network,
-                  provider,
-                );
-              });
-            }
+            it(`${tokenBSymbol} -> ${tokenASymbol}`, async () => {
+              await testE2E(
+                tokens[tokenBSymbol],
+                tokens[tokenASymbol],
+                holders[tokenBSymbol],
+                side === SwapSide.SELL ? tokenBAmount : tokenAAmount,
+                side,
+                dexKey,
+                contractMethod,
+                network,
+                provider,
+              );
+            });
           });
         });
       }),
@@ -74,36 +66,17 @@ function testForNetwork(
   });
 }
 
-describe('SkyConverter E2E', () => {
-  describe('USDS - DAI', () => {
-    const dexKey = 'DaiUsds';
-    const network = Network.MAINNET;
+describe('UsdcTransmuter E2E', () => {
+  const dexKey = 'UsdcTransmuter';
 
-    const tokenASymbol: string = 'DAI';
-    const tokenBSymbol: string = 'USDS';
+  describe('Gnosis', () => {
+    const network = Network.GNOSIS;
 
-    const tokenAAmount: string = '10000000000000000000';
-    const tokenBAmount: string = '10000000000000000000';
+    const tokenASymbol: string = 'USDC';
+    const tokenBSymbol: string = 'USDCe';
 
-    testForNetwork(
-      network,
-      dexKey,
-      tokenASymbol,
-      tokenBSymbol,
-      tokenAAmount,
-      tokenBAmount,
-    );
-  });
-
-  describe('MKR - SKY', () => {
-    const dexKey = 'MkrSky';
-    const network = Network.MAINNET;
-
-    const tokenASymbol: string = 'MKR';
-    const tokenBSymbol: string = 'SKY';
-
-    const tokenAAmount: string = '10000000000000000000';
-    const tokenBAmount: string = '10000000000000000000';
+    const tokenAAmount: string = '10000000';
+    const tokenBAmount: string = '10000000';
 
     testForNetwork(
       network,
@@ -112,7 +85,6 @@ describe('SkyConverter E2E', () => {
       tokenBSymbol,
       tokenAAmount,
       tokenBAmount,
-      true, // disable SKY -> MKR conversion
     );
   });
 });
