@@ -8,7 +8,12 @@ import {
   Logger,
   NumberAsString,
 } from '../../types';
-import { SwapSide, Network, NULL_ADDRESS } from '../../constants';
+import {
+  SwapSide,
+  Network,
+  NULL_ADDRESS,
+  NO_USD_LIQUIDITY,
+} from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork } from '../../utils';
 import { Context, IDex } from '../../dex/idex';
@@ -372,15 +377,17 @@ export class AaveV3PtRollOver
       return [];
     }
 
-    // Find other AAVE PT markets for rollover opportunities
+    const isOldPT = this.isOldPendleToken(tokenAddress);
+
     const rolloverOpportunities: PoolLiquidity[] = [];
 
     for (const [ptAddress, cachedMarket] of this.marketsCache) {
-      if (
-        ptAddress !== tokenAddress.toLowerCase() &&
+      const isDifferentPt = ptAddress !== tokenAddress.toLowerCase();
+      const isSameUnderlying =
         cachedMarket.underlyingAssetAddress.toLowerCase() ===
-          market.underlyingAssetAddress.toLowerCase()
-      ) {
+        market.underlyingAssetAddress.toLowerCase();
+
+      if (isDifferentPt && isSameUnderlying) {
         rolloverOpportunities.push({
           exchange: this.dexKey,
           address: cachedMarket.address,
@@ -388,9 +395,10 @@ export class AaveV3PtRollOver
             {
               address: cachedMarket.ptAddress,
               decimals: cachedMarket.ptDecimals,
+              liquidityUSD: isOldPT ? NO_USD_LIQUIDITY : 1000000000,
             },
           ],
-          liquidityUSD: 1000000000, // Just returning a big number so this DEX will be preferred
+          liquidityUSD: isOldPT ? 1000000000 : NO_USD_LIQUIDITY,
         });
       }
     }
