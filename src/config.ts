@@ -489,6 +489,35 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     uniswapV3EventLoggingSampleRate: 0,
     forceRpcFallbackDexs: [],
   },
+  [Network.UNICHAIN]: {
+    network: Network.UNICHAIN,
+    networkName: 'Unichain',
+    isTestnet: false,
+    nativeTokenName: 'Ether',
+    nativeTokenSymbol: 'ETH',
+    wrappedNativeTokenAddress: '0x4200000000000000000000000000000000000006',
+    hasEIP1559: true,
+    augustusAddress: '0x0000000000000000000000000000000000000000',
+    tokenTransferProxyAddress: '0x0000000000000000000000000000000000000000',
+    multicallV2Address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    privateHttpProvider: process.env.HTTP_PROVIDER_130,
+    adapterAddresses: {},
+    augustusRFQAddress: '0x92EaD5bACf6F0E995FA46Ad8215A9b11f67ca241',
+    augustusV6Address: '0x6a000f20005980200259b80c5102003040001068',
+    executorsAddresses: {
+      Executor01: '0x000010036c0190e009a000d0fc3541100a07380a',
+      Executor02: '0x00c600b30fb0400701010f4b080409018b9006e0',
+      Executor03: '0xe009f00e200a090090fc70e02d70b232000c0802',
+    },
+    rpcPollingMaxAllowedStateDelayInBlocks: 0,
+    rpcPollingBlocksBackToTriggerUpdate: 0,
+    hashFlowDisabledMMs: [],
+    uniswapV3EventLoggingSampleRate: 0,
+    rfqConfigs: {},
+    forceRpcFallbackDexs: [],
+    uniswapV2ExchangeRouterAddress:
+      '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc', // NOTE: deployed on Tenderly fork
+  },
 };
 
 // Should not be used, except by internal test code
