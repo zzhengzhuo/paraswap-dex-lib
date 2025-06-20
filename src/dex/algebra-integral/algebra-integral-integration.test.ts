@@ -144,8 +144,8 @@ async function testPricingOnNetwork(
   );
 }
 
-describe('AlgebraIntegral', function () {
-  const dexKey = 'AlgebraIntegral';
+describe('QuickSwapV4', function () {
+  const dexKey = 'QuickSwapV4';
   let blockNumber: number;
   let algebra: AlgebraIntegral;
 

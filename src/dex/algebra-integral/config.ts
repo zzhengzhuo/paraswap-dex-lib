@@ -3,7 +3,7 @@ import { DexConfigMap } from '../../types';
 import { Network } from '../../constants';
 
 export const AlgebraIntegralConfig: DexConfigMap<DexParams> = {
-  AlgebraIntegral: {
+  QuickSwapV4: {
     [Network.POLYGON]: {
       factory: '0x96117a894c2c99aafeeacb972c3310e6ac83e810',
       subgraphURL: 'B8VaWM5T8miDW4TKdGRAkZXvLekpptQykxNV8vVP8fhg',

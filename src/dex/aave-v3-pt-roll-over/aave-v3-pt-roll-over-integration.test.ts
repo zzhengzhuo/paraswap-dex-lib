@@ -176,8 +176,8 @@ async function testPricingOnNetwork(
   );
 }
 
-describe('AaveV3PtRollOver', function () {
-  const dexKey = 'AaveV3PtRollOver';
+describe('AaveV3Pendle', function () {
+  const dexKey = 'AaveV3Pendle';
   let blockNumber: number;
   let aaveV3PtRollOver: AaveV3PtRollOver;
 

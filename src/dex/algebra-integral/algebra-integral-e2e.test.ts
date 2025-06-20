@@ -109,8 +109,8 @@ function testForNetwork(
   });
 }
 
-describe('AlgebraIntegral E2E', () => {
-  const dexKey = 'AlgebraIntegral';
+describe('QuickSwapV4 E2E', () => {
+  const dexKey = 'QuickSwapV4';
 
   describe('Polygon', () => {
     const network = Network.POLYGON;

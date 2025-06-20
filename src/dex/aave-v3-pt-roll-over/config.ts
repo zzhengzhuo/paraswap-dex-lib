@@ -18,7 +18,7 @@ const ORACLE_ADDRESS = '0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2';
 const UNDERLYING_TOKEN_ADDRESS = '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497';
 
 export const AaveV3PtRollOverConfig: DexConfigMap<DexParams> = {
-  AaveV3PtRollOver: {
+  AaveV3Pendle: {
     [Network.MAINNET]: {
       pendleRouterAddress: PENDLE_ROUTER_ADDRESS,
       oldPendleToken: {

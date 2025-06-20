@@ -53,8 +53,8 @@ function testForNetwork(
   });
 }
 
-describe('AaveV3PtRollOver E2E', () => {
-  const dexKey = 'AaveV3PtRollOver';
+describe('AaveV3Pendle E2E', () => {
+  const dexKey = 'AaveV3Pendle';
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
