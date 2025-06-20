@@ -300,22 +300,27 @@ const replacer = (_: string, value: any): any => {
   return value;
 };
 
+const reviver = (_: string, value: any): any => {
+  if (typeof value === 'string') {
+    if (value.startsWith(PREFIX_BIG_INT)) {
+      return casterStringToBigInt(value);
+    }
+
+    if (value.startsWith(PREFIX_BIG_NUMBER)) {
+      return casterStringToBigNumber(value);
+    }
+  }
+
+  return value;
+};
+
 export class Utils {
   static Serialize(data: any): string {
     return JSON.stringify(data, replacer);
   }
 
-  static Parse(data: any): any {
-    return deepTypecast(JSON.parse(data), [
-      {
-        checker: checkerStringWithBigIntPrefix,
-        caster: casterStringToBigInt,
-      },
-      {
-        checker: checkerStringWithBigNumberPrefix,
-        caster: casterStringToBigNumber,
-      },
-    ]);
+  static Parse(data: string): any {
+    return JSON.parse(data, reviver);
   }
 
   static timeoutPromise<T>(
