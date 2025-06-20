@@ -288,20 +288,21 @@ export function deepTypecast(obj: any, types: TypeSerializer[]): any {
   });
 }
 
+const replacer = (_: string, value: any): any => {
+  if (typeof value === 'bigint') {
+    return PREFIX_BIG_INT + value.toString();
+  }
+
+  if (value instanceof BigNumber) {
+    return PREFIX_BIG_NUMBER + value.toString();
+  }
+
+  return value;
+};
+
 export class Utils {
   static Serialize(data: any): string {
-    return JSON.stringify(
-      deepTypecast(_.cloneDeep(data), [
-        {
-          checker: checkerBigInt,
-          caster: casterBigIntToString,
-        },
-        {
-          checker: checkerBigNumber,
-          caster: casterBigNumberToString,
-        },
-      ]),
-    );
+    return JSON.stringify(data, replacer);
   }
 
   static Parse(data: any): any {
