@@ -288,33 +288,39 @@ export function deepTypecast(obj: any, types: TypeSerializer[]): any {
   });
 }
 
-export class Utils {
-  static Serialize(data: any): string {
-    return JSON.stringify(
-      deepTypecast(_.cloneDeep(data), [
-        {
-          checker: checkerBigInt,
-          caster: casterBigIntToString,
-        },
-        {
-          checker: checkerBigNumber,
-          caster: casterBigNumberToString,
-        },
-      ]),
-    );
+const replacer = (_: string, value: any): any => {
+  if (typeof value === 'bigint') {
+    return PREFIX_BIG_INT + value.toString();
   }
 
-  static Parse(data: any): any {
-    return deepTypecast(_.cloneDeep(JSON.parse(data)), [
-      {
-        checker: checkerStringWithBigIntPrefix,
-        caster: casterStringToBigInt,
-      },
-      {
-        checker: checkerStringWithBigNumberPrefix,
-        caster: casterStringToBigNumber,
-      },
-    ]);
+  if (value instanceof BigNumber) {
+    return PREFIX_BIG_NUMBER + value.toString();
+  }
+
+  return value;
+};
+
+const reviver = (_: string, value: any): any => {
+  if (typeof value === 'string') {
+    if (value.startsWith(PREFIX_BIG_INT)) {
+      return casterStringToBigInt(value);
+    }
+
+    if (value.startsWith(PREFIX_BIG_NUMBER)) {
+      return casterStringToBigNumber(value);
+    }
+  }
+
+  return value;
+};
+
+export class Utils {
+  static Serialize(data: any): string {
+    return JSON.stringify(data, replacer);
+  }
+
+  static Parse(data: string): any {
+    return JSON.parse(data, reviver);
   }
 
   static timeoutPromise<T>(
