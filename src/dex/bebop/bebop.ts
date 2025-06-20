@@ -823,7 +823,8 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       BEBOP_ERRORS_CACHE_KEY,
     );
 
-    const errorsData: RestrictData = Utils.Parse(errorsDataRaw);
+    const errorsData: RestrictData =
+      errorsDataRaw !== null ? Utils.Parse(errorsDataRaw) : null;
     const ERRORS_TTL_S = Math.floor(BEBOP_RESTRICT_CHECK_INTERVAL_MS / 1000);
 
     if (

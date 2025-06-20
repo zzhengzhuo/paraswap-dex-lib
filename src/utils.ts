@@ -319,7 +319,7 @@ export class Utils {
     return JSON.stringify(data, replacer);
   }
 
-  static Parse(data: any): any {
+  static Parse(data: string): any {
     return JSON.parse(data, reviver);
   }
 
