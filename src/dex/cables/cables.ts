@@ -811,8 +811,7 @@ export class Cables extends SimpleExchange implements IDex<any> {
       CABLES_ERRORS_CACHE_KEY,
     );
 
-    const errorsData: RestrictData =
-      errorsDataRaw !== null ? Utils.Parse(errorsDataRaw) : null;
+    const errorsData: RestrictData = Utils.Parse(errorsDataRaw);
     const ERRORS_TTL_S = Math.floor(CABLES_RESTRICT_CHECK_INTERVAL_MS / 1000);
 
     if (
