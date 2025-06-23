@@ -62,7 +62,6 @@ import {
   RfqError,
 } from './types';
 import { SpecialDex } from '../../executor/types';
-import { RestrictData } from '../bebop/types';
 
 export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
   readonly isStatePollingDex = true;
@@ -746,8 +745,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
       mm,
     );
 
-    const errorCodes: CacheErrorCodesData =
-      errorCodesRaw !== null ? Utils.Parse(errorCodesRaw) : {};
+    const errorCodes: CacheErrorCodesData = Utils.Parse(errorCodesRaw) || {};
 
     const error = errorCodes?.[errorCode];
 
