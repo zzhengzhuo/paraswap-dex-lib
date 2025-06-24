@@ -2797,7 +2797,7 @@ describe('PangolinV3', () => {
           uniswapV3,
           'quoteExactInputSingle',
           blockNumber,
-          '0xAAAEA10b0e6FBe566FE27c3A023DC5D8cA6Bca3d',
+          '0xA86522CCc412dBC4FA10991900FE46De95983822',
           price.prices,
           TokenA.address,
           TokenB.address,
