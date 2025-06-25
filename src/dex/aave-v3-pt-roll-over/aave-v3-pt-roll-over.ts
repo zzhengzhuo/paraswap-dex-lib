@@ -226,7 +226,10 @@ export class AaveV3PtRollOver
       return false;
     }
 
-    return this.isOldPendleToken(srcToken.address) && this.isNewPendleToken(destToken.address);
+    return (
+      this.isOldPendleToken(srcToken.address) &&
+      this.isNewPendleToken(destToken.address)
+    );
   }
 
   async getPoolIdentifiers(
