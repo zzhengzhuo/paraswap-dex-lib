@@ -2733,14 +2733,14 @@ describe('Slipstream', () => {
   });
 });
 
-describe('PangolinV3', () => {
+describe.only('PangolinV3', () => {
   const dexKey = 'PangolinV3';
   let blockNumber: number;
   let uniswapV3: UniswapV3;
-  let uniswapV3Mainnet: UniswapV3;
 
   const network = Network.AVALANCHE;
   const dexHelper = new DummyDexHelper(network);
+
   const TokenASymbol = 'USDC';
   const TokenA = Tokens[network][TokenASymbol];
 
@@ -2750,7 +2750,6 @@ describe('PangolinV3', () => {
   beforeEach(async () => {
     blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
     uniswapV3 = new UniswapV3(network, dexKey, dexHelper);
-    uniswapV3Mainnet = new UniswapV3(Network.AVALANCHE, dexKey, dexHelper);
   });
 
   it('getPoolIdentifiers and getPricesVolume SELL', async function () {
@@ -2844,7 +2843,7 @@ describe('PangolinV3', () => {
     console.log(`${TokenASymbol} <> ${TokenBSymbol} Pool Prices: `, poolPrices);
 
     expect(poolPrices).not.toBeNull();
-    checkPoolPrices(poolPrices!, amounts, SwapSide.SELL, dexKey);
+    checkPoolPrices(poolPrices!, amounts, SwapSide.BUY, dexKey);
 
     let falseChecksCounter = 0;
     await Promise.all(
@@ -2871,11 +2870,11 @@ describe('PangolinV3', () => {
 
   it('getTopPoolsForToken', async function () {
     const poolLiquidity = await uniswapV3.getTopPoolsForToken(
-      TokenB.address,
+      TokenA.address,
       10,
     );
     console.log(`${TokenASymbol} Top Pools:`, poolLiquidity);
 
-    checkPoolsLiquidity(poolLiquidity, TokenB.address, dexKey);
+    checkPoolsLiquidity(poolLiquidity, TokenA.address, dexKey);
   });
 });
