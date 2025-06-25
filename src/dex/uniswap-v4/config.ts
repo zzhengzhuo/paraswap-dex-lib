@@ -17,6 +17,7 @@ export const UniswapV4Config: DexConfigMap<DexParams> = {
       quoter: '0x0d5e0f971ed27fbff6c2837bf31316121532048d',
       router: '0x6ff5693b99212da76ad316178a184ab56d299b43',
       stateView: '0xa3c0c9b65bad0b08107aa264b0f3db444b867a71',
+      skipPoolsWithUnconventionalFees: true,
     },
     [Network.OPTIMISM]: {
       poolManager: '0x9a13f98cb987694c9f086b1f5eb990eea8264ec3',
