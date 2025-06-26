@@ -120,9 +120,9 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
         );
 
         return {
-          liquidity: BigInt(decoded[0]),
-          feeGrowthInside0LastX128: BigInt(decoded[1]),
-          feeGrowthInside1LastX128: BigInt(decoded[2]),
+          liquidity: BigInt(decoded[0].toString()),
+          feeGrowthInside0LastX128: BigInt(decoded[1].toString()),
+          feeGrowthInside1LastX128: BigInt(decoded[2].toString()),
         };
       },
     };
@@ -158,10 +158,10 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
           );
 
           return {
-            sqrtPriceX96: BigInt(decoded[0]),
-            tick: BigInt(decoded[1]),
-            protocolFee: BigInt(decoded[2]),
-            lpFee: BigInt(decoded[3]),
+            sqrtPriceX96: BigInt(decoded[0].toString()),
+            tick: BigInt(decoded[1].toString()),
+            protocolFee: BigInt(decoded[2].toString()),
+            lpFee: BigInt(decoded[3].toString()),
           };
         },
       },
@@ -182,8 +182,8 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
           );
 
           return {
-            feeGrowthGlobal0: BigInt(decoded[0]),
-            feeGrowthGlobal1: BigInt(decoded[1]),
+            feeGrowthGlobal0: BigInt(decoded[0].toString()),
+            feeGrowthGlobal1: BigInt(decoded[1].toString()),
           };
         },
       },
@@ -208,10 +208,10 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
           );
 
           return {
-            liquidityGross: BigInt(decoded[0]),
-            liquidityNet: BigInt(decoded[1]),
-            feeGrowthOutside0X128: BigInt(decoded[2]),
-            feeGrowthOutside1X128: BigInt(decoded[3]),
+            liquidityGross: BigInt(decoded[0].toString()),
+            liquidityNet: BigInt(decoded[1].toString()),
+            feeGrowthOutside0X128: BigInt(decoded[2].toString()),
+            feeGrowthOutside1X128: BigInt(decoded[3].toString()),
           };
         },
       });
@@ -240,7 +240,7 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
             toDecode,
           );
 
-          return [i, BigInt(decoded[0])];
+          return [i, BigInt(decoded[0].toString())];
         },
       });
     }
@@ -268,7 +268,7 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
             toDecode,
           );
 
-          return [wordPos, BigInt(decoded[0])];
+          return [wordPos, BigInt(decoded[0].toString())];
         },
       });
     });
@@ -405,7 +405,7 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
   }
 
   async getTicks(blockNumber: number): Promise<SubgraphTick[]> {
-    const defaultPerPageLimit = 1000;
+    const defaultPerPageLimit = 100;
     let curPage = 0;
     let ticks: SubgraphTick[] = [];
 
@@ -530,8 +530,8 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
   }
 
   handleDonateEvent(event: any, poolState: PoolState) {
-    const amount0 = BigInt(event.args.amount0);
-    const amount1 = BigInt(event.args.amount1);
+    const amount0 = BigInt(event.args.amount0.toString());
+    const amount1 = BigInt(event.args.amount1.toString());
 
     uniswapV4PoolMath.checkPoolInitialized(poolState);
     uniswapV4PoolMath.donate(poolState, amount0, amount1);
@@ -540,13 +540,13 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
   }
 
   handleSwapEvent(event: any, poolState: PoolState) {
-    const amount0 = BigInt(event.args.amount0);
-    const amount1 = BigInt(event.args.amount1);
+    const amount0 = BigInt(event.args.amount0.toString());
+    const amount1 = BigInt(event.args.amount1.toString());
 
-    const resultSqrtPriceX96 = BigInt(event.args.sqrtPriceX96);
-    const resultLiquidity = BigInt(event.args.liquidity);
-    const resultTick = BigInt(event.args.tick);
-    const resultSwapFee = BigInt(event.args.fee);
+    const resultSqrtPriceX96 = BigInt(event.args.sqrtPriceX96.toString());
+    const resultLiquidity = BigInt(event.args.liquidity.toString());
+    const resultTick = BigInt(event.args.tick.toString());
+    const resultSwapFee = BigInt(event.args.fee.toString());
 
     const zeroForOne = amount0 < 0n;
 
@@ -572,16 +572,16 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
     uniswapV4PoolMath.checkPoolInitialized(poolState);
 
     const owner = event.args.sender.toLowerCase();
-    const tickLower = BigInt(event.args.tickLower);
-    const tickUpper = BigInt(event.args.tickUpper);
-    const liquidityDelta = BigInt(event.args.liquidityDelta);
+    const tickLower = BigInt(event.args.tickLower.toString());
+    const tickUpper = BigInt(event.args.tickUpper.toString());
+    const liquidityDelta = BigInt(event.args.liquidityDelta.toString());
     const salt = event.args.salt.toLowerCase();
 
     const positionsInfoCallData = this._getPositionInfoCallData(
       id,
       owner,
-      parseInt(event.args.tickLower),
-      parseInt(event.args.tickUpper),
+      parseInt(event.args.tickLower.toString()),
+      parseInt(event.args.tickUpper.toString()),
       salt,
     );
 

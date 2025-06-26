@@ -19,6 +19,7 @@ import {
 } from '../constants';
 import { LPFeeLibrary } from './LPFeeLibrary';
 import { Logger } from 'log4js';
+import { MAX_INT } from '../../../constants';
 
 type StepComputations = {
   sqrtPriceStartX96: bigint;
@@ -609,7 +610,7 @@ class UniswapV4PoolMath {
       : ProtocolFeeLibrary.getOneForZeroFee(slot0Start.protocolFee);
 
     const amountSpecified = zeroForOne ? amount0 : amount1;
-    let amountSpecifiedRemaining = amountSpecified;
+    let amountSpecifiedRemaining = BigInt(MAX_INT);
     let amountCalculated = 0n;
 
     let result = {
@@ -625,9 +626,7 @@ class UniswapV4PoolMath {
         : ProtocolFeeLibrary.calculateSwapFee(protocolFee, lpFee);
 
     const paramsTickSpacing = poolState.tickSpacing;
-    const paramsSqrtPriceLimitX96 = zeroForOne
-      ? TickMath.MIN_SQRT_PRICE + 1n
-      : TickMath.MAX_SQRT_PRICE - 1n;
+    const paramsSqrtPriceLimitX96 = newSqrtPriceX96;
 
     let step = {
       feeGrowthGlobalX128: zeroForOne
@@ -747,6 +746,9 @@ class UniswapV4PoolMath {
       }
 
       counter++;
+      logger.info(
+        `amountSpecifiedRemaining: ${amountSpecifiedRemaining}, poolId: ${poolState.id}, counter: ${counter}`,
+      );
     }
 
     if (counter >= SWAP_EVENT_MAX_CYCLES) {
@@ -757,11 +759,21 @@ class UniswapV4PoolMath {
 
     const currentTick = result.tick;
     const currentPrice = result.sqrtPriceX96;
+    const currentLiquidity = result.liquidity;
 
     _require(
-      currentPrice === newSqrtPriceX96 && currentTick === newTick,
+      currentPrice === newSqrtPriceX96 &&
+        currentTick === newTick &&
+        currentLiquidity === newLiquidity,
       'LOGIC ERROR: calculated (currentPrice,currentTick) and (newSqrtPriceX96, newTick) from event should always be equal at the end',
-      { currentPrice, newSqrtPriceX96, currentTick, newTick },
+      {
+        currentPrice,
+        newSqrtPriceX96,
+        currentTick,
+        newTick,
+        currentLiquidity,
+        newLiquidity,
+      },
       'currentPrice === newSqrtPriceX96 && currentTick === newTick',
     );
 
