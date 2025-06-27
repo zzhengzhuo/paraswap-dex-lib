@@ -507,7 +507,7 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     executorsAddresses: {
       Executor01: '0x000010036c0190e009a000d0fc3541100a07380a',
       Executor02: '0x00c600b30fb0400701010f4b080409018b9006e0',
-      Executor03: '0xe009f00e200a090090fc70e02d70b232000c0802',
+      Executor03: '0xa0f408a000017007015e0f00320e470d00090a5b',
     },
     rpcPollingMaxAllowedStateDelayInBlocks: 0,
     rpcPollingBlocksBackToTriggerUpdate: 0,
@@ -516,7 +516,7 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     rfqConfigs: {},
     forceRpcFallbackDexs: [],
     uniswapV2ExchangeRouterAddress:
-      '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc', // NOTE: deployed on Tenderly fork
+      '0x21D2B4641c1802C5f9767FfED28708F3A76Ed0aa',
   },
 };
 
