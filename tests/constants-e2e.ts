@@ -1825,6 +1825,18 @@ export const Tokens: {
       address: '0x20CAb320A855b39F724131C69424240519573f81',
       decimals: 18,
     },
+    DMC: {
+      address: '0x076f42d9374a2DCC98255A96bA460d7178f3cf26',
+      decimals: 9,
+    },
+    MGO: {
+      address: '0x3874BA75513f17DEFFFd784eE0c9e2158d4AF253',
+      decimals: 9,
+    },
+    UNI: {
+      address: '0x8f187aA05619a017077f5308904739877ce9eA21',
+      decimals: 18,
+    },
   },
 };
 
