@@ -426,9 +426,9 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
         '0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303',
       feeCode: 30,
     },
-    [Network.FANTOM]: {
-      subgraphURL: '3nozHyFKUhxnEvekFg5G57bxPC5V63eiWbwmgA35N5VK',
-      factoryAddress: '0xc35dadb65012ec5796536bd9864ed8773abc74c4',
+    [Network.SONIC]: {
+      subgraphURL: 'DiS2ZgxR2upUs1s21wviEaY7hwjRWyrphhoBgKNc1Boo',
+      factoryAddress: '0xB45e53277a7e0F1D35f2a77160e91e25507f1763',
       initCode:
         '0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303',
       feeCode: 30,
