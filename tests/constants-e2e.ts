@@ -842,6 +842,14 @@ export const Tokens: {
       address: '0xE5DA20F15420aD15DE0fa650600aFc998bbE3955',
       decimals: 18,
     },
+    aSonwS: {
+      address: '0x6C5E14A212c1C3e4Baf6f871ac9B1a969918c131',
+      decimals: 18,
+    },
+    aSonUSDC: {
+      address: '0x578Ee1ca3a8E1b54554Da1Bf7C583506C4CD11c6',
+      decimals: 18,
+    },
   },
   [Network.BSC]: {
     POPS: {
