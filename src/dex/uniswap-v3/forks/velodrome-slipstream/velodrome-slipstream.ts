@@ -160,12 +160,12 @@ export class VelodromeSlipstream extends UniswapV3 {
         if (index === 0) {
           return {
             types: ['address', 'uint24', 'address'],
-            _path: [curr.tokenIn, curr.tickSpacing, curr.tokenOut],
+            _path: [curr.tokenIn, curr.tickSpacing ?? curr.fee, curr.tokenOut],
           };
         } else {
           return {
             types: [...types, 'uint24', 'address'],
-            _path: [..._path, curr.tickSpacing, curr.tokenOut],
+            _path: [..._path, curr.tickSpacing ?? curr.fee, curr.tokenOut],
           };
         }
       },
