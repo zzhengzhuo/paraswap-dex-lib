@@ -61,20 +61,6 @@ export const Adapters: {
       },
     ],
   },
-  [Network.FANTOM]: {
-    [SwapSide.SELL]: [
-      {
-        name: 'FantomAdapter01',
-        index: 2,
-      },
-    ],
-    [SwapSide.BUY]: [
-      {
-        name: 'FantomBuyAdapter',
-        index: 1,
-      },
-    ],
-  },
   [Network.ARBITRUM]: {
     [SwapSide.SELL]: [
       {
@@ -392,25 +378,6 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
       feeCode: 25,
     },
   },
-  PaintSwap: {
-    [Network.FANTOM]: {
-      // subgraphURL:
-      //   'https://api.thegraph.com/subgraphs/name/paint-swap-finance/exchange',
-      factoryAddress: '0x733a9d1585f2d14c77b49d39bc7d7dd14cda4aa5',
-      initCode:
-        '0x52178a9131f5551c2e56bf7cbf02aed8be8130e6493915a6b0c7602ac2125e54',
-      feeCode: 30,
-    },
-  },
-  MorpheusSwap: {
-    [Network.FANTOM]: {
-      subgraphURL: 'C5XUzYLrDHiiKL7zGjLLyiQueJkQfeUyMZCcgwnVWcNr',
-      factoryAddress: '0x9c454510848906fddc846607e4baa27ca999fbb6',
-      initCode:
-        '0x82b04e3f5f54946a0ed70d459c25f54ad42d498268c75b27f9727e3d212e91fd',
-      feeCode: 15,
-    },
-  },
   SushiSwap: {
     [Network.MAINNET]: {
       subgraphURL: 'A4JrrMwrEXsYNAiYw7rWwbHhQZdj6YZg1uVy5wa6g821',
@@ -483,20 +450,12 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
     },
   },
   SpookySwap: {
-    [Network.FANTOM]: {
-      subgraphURL: 'HyhMfT7gehNHMBmFiExqeg3pDtop9UikjvBPfAXT3b21',
-      factoryAddress: '0x152ee697f2e276fa89e96742e9bb9ab1f2e61be3',
+    [Network.SONIC]: {
+      subgraphURL: '', // deployed on 0xgraph
+      factoryAddress: '0xEE4bC42157cf65291Ba2FE839AE127e3Cc76f741',
       initCode:
-        '0xcdf2deca40a0bd56de8e3ce5c7df6727e5b1bf2ac96f283fa9c4b3e6b42ea9d2',
+        '0xc0a4478c7d7a8e51439185380bd1914dea14c12086db861090a5dc8d11b4e95b',
       feeCode: 20,
-    },
-  },
-  SpiritSwap: {
-    [Network.FANTOM]: {
-      factoryAddress: '0xEF45d134b73241eDa7703fa787148D9C9F4950b0',
-      initCode:
-        '0xe242e798f6cee26a9cb0bbf24653bf066e5356ffeac160907fe2cc108e238617',
-      feeCode: 30,
     },
   },
   ShibaSwap: {
