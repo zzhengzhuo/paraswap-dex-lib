@@ -37,6 +37,7 @@ import {
   UniswapV3Param,
   UniswapV3ParamsDirect,
   UniswapV3ParamsDirectBase,
+  UniswapV3Router,
   UniswapV3SimpleSwapParams,
 } from './types';
 import {
@@ -46,6 +47,7 @@ import {
 import { Adapters, PoolsToPreload, UniswapV3Config } from './config';
 import { UniswapV3EventPool } from './uniswap-v3-pool';
 import UniswapV3RouterABI from '../../abi/uniswap-v3/UniswapV3Router.abi.json';
+import UniswapSwapRouter02ABI from '../../abi/uniswap-v3/UniswapSwapRouter02.abi.json';
 import UniswapV3QuoterV2ABI from '../../abi/uniswap-v3/UniswapV3QuoterV2.abi.json';
 import UniswapV3MultiABI from '../../abi/uniswap-v3/UniswapMulti.abi.json';
 import DirectSwapABI from '../../abi/DirectSwap.json';
@@ -89,6 +91,7 @@ export class UniswapV3
   implements IDex<UniswapV3Data, UniswapV3Param | UniswapV3ParamsDirect>
 {
   protected readonly factory: UniswapV3Factory;
+  readonly routerIface: Interface;
   readonly isFeeOnTransferSupported: boolean = false;
   readonly eventPools: Record<string, UniswapV3EventPool | null> = {};
 
@@ -128,7 +131,6 @@ export class UniswapV3
     dexKey: string,
     protected dexHelper: IDexHelper,
     protected adapters = Adapters[network] || {},
-    readonly routerIface = new Interface(UniswapV3RouterABI),
     readonly quoterIface = new Interface(UniswapV3QuoterV2ABI),
     protected config = UniswapV3Config[dexKey][network],
     protected poolsToPreload = PoolsToPreload[dexKey]?.[network] || [],
@@ -139,6 +141,11 @@ export class UniswapV3
       UniswapV3Config[dexKey][network].subgraphType,
   ) {
     super(dexHelper, dexKey);
+    const routerABI =
+      this.config.routerType === UniswapV3Router.SwapRouter02
+        ? UniswapSwapRouter02ABI
+        : UniswapV3RouterABI;
+    this.routerIface = new Interface(routerABI);
     this.logger = dexHelper.getLogger(dexKey + '-' + network);
     this.uniswapMulti = new this.dexHelper.web3Provider.eth.Contract(
       UniswapV3MultiABI as AbiItem[],

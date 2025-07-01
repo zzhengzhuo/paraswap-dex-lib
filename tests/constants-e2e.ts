@@ -858,6 +858,10 @@ export const Tokens: {
       address: '0x18b7b8695165290f2767bc63c36d3dfea4c0f9bb',
       decimals: 18,
     },
+    BOO: {
+      address: '0x7a0c53f7eb34c5bc8b01691723669ada9d6cb384',
+      decimals: 18,
+    },
   },
   [Network.BSC]: {
     POPS: {

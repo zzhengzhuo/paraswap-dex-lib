@@ -1,4 +1,4 @@
-import { DexParams } from './types';
+import { DexParams, UniswapV3Router } from './types';
 import { DexConfigMap, AdapterMappings } from '../../types';
 import { Network, SwapSide } from '../../constants';
 import { Address } from '../../types';
@@ -122,7 +122,8 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
     [Network.SONIC]: {
       factory: '0xcb2436774C3e191c85056d248EF4260ce5f27A9D',
       quoter: '0x5911cB3633e764939edc2d92b7e1ad375Bb57649',
-      router: '0x1400feFD6F9b897970f00Df6237Ff2B8b27Dc82C',
+      router: '0xaa52bB8110fE38D0d2d2AF0B85C3A3eE622CA455',
+      routerType: UniswapV3Router.SwapRouter02,
       supportedFees: SUPPORTED_FEES,
       stateMulticall: '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc',
       uniswapMulticall: '0x5d6b0f5335ec95cD2aB7E52f2A0750dd86502435',
@@ -301,18 +302,19 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
     },
   },
   SpookySwapV3: {
-    [Network.FANTOM]: {
-      factory: '0x7928a2c48754501f3a8064765ECaE541daE5c3E6',
-      quoter: '0xB9507f2ED171D52c5c2EFaeAbdE440d264504A92',
-      router: '0x765132A0630Cd4401b971706Bb21c0FB5Ab547ad',
+    [Network.SONIC]: {
+      factory: '0x3D91B700252e0E3eE7805d12e048a988Ab69C8ad',
+      quoter: '0x593856bbfd6Aaf0b714277c0BF06307900d1Aa68',
+      router: '0x0C2BC01d435CfEb2DC6Ad7cEC0E473e2DBaBdd87',
+      routerType: UniswapV3Router.SwapRouter02,
       supportedFees: SUPPORTED_FEES,
-      stateMulticall: '0x2cc482a66dd677ad33900018f774052717c533fb',
-      uniswapMulticall: '0x96a7F0E4905F39508b17Faef5aC456C72a4E1319',
+      stateMulticall: '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc',
+      uniswapMulticall: '0x5d6b0f5335ec95cD2aB7E52f2A0750dd86502435',
       chunksCount: 5,
       initRetryFrequency: 30,
       initHash:
         '0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54',
-      subgraphURL: '6WBxx3gYia4oCLsYMFTZs6HLEnEqVMdpeZDCABnM1tj2',
+      // subgraphURL: '', deployed on 0xgraph
     },
   },
   Retro: {
