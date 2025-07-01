@@ -850,6 +850,14 @@ export const Tokens: {
       address: '0x578Ee1ca3a8E1b54554Da1Bf7C583506C4CD11c6',
       decimals: 18,
     },
+    waSonUSDC: {
+      address: '0x6646248971427B80ce531bdD793e2Eb859347E55',
+      decimals: 18,
+    },
+    waSonwS: {
+      address: '0x18b7b8695165290f2767bc63c36d3dfea4c0f9bb',
+      decimals: 18,
+    },
   },
   [Network.BSC]: {
     POPS: {
