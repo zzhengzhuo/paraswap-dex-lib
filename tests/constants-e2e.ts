@@ -834,6 +834,14 @@ export const Tokens: {
       address: '0x50c42dEAcD8Fc9773493ED674b675bE577f2634b',
       decimals: 18,
     },
+    USDT: {
+      address: '0x6047828dc181963ba44974801ff68e538da5eaf9',
+      decimals: 6,
+    },
+    stS: {
+      address: '0xE5DA20F15420aD15DE0fa650600aFc998bbE3955',
+      decimals: 18,
+    },
   },
   [Network.BSC]: {
     POPS: {
