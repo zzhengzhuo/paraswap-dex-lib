@@ -14,8 +14,7 @@ export const AlgebraIntegralConfig: DexConfigMap<DexParams> = {
     },
     [Network.BASE]: {
       factory: '0xC5396866754799B9720125B104AE01d935Ab9C7b',
-      subgraphURL:
-        'https://api.studio.thegraph.com/query/113693/quickswap-algebra-base/version/latest',
+      subgraphURL: 'U65NKb6BsDPGqugPAda58ebMLa1RqeMFT76fndB77oe',
       quoter: '0xA8a1dA1279ea63535c7B3BE8D20241483BC61009',
       router: '0xe6c9bb24ddB4aE5c6632dbE0DE14e3E474c6Cb04',
       uniswapMulticall: '0xD55AbC52a0d9901AD07FEbe2903d05601E2a34dD',
