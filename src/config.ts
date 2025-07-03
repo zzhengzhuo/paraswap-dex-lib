@@ -264,9 +264,9 @@ const baseConfigs: { [network: number]: BaseConfig } = {
       process.env[`HASHFLOW_DISABLED_MMS_146`]?.split(',') || [],
     augustusV6Address: '0x6a000f20005980200259b80c5102003040001068',
     executorsAddresses: {
-      Executor01: '0x000010036c0190e009a000d0fc3541100a07380a',
-      Executor02: '0x00c600b30fb0400701010f4b080409018b9006e0',
-      Executor03: '0xa0f408a000017007015e0f00320e470d00090a5b',
+      Executor01: '0x5006860a0906b0d8C9c050200947000030081006',
+      Executor02: '0x400000E6A000dE0de400b5c00502b000020F1A88',
+      Executor03: '0x30009725805dac609000df0606E600C000020078',
     },
     adapterAddresses: {},
     uniswapV2ExchangeRouterAddress:
