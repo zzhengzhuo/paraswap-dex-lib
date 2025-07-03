@@ -1821,6 +1821,10 @@ export const Tokens: {
       address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
       decimals: 6,
     },
+    'USD₮0': {
+      address: '0x9151434b16b9763660705744891fA906F660EcC5',
+      decimals: 6,
+    },
     DAI: {
       address: '0x20CAb320A855b39F724131C69424240519573f81',
       decimals: 18,
