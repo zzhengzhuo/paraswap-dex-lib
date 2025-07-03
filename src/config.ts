@@ -254,9 +254,9 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     nativeTokenSymbol: 'S',
     wrappedNativeTokenAddress: '0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38',
     hasEIP1559: true,
-    augustusAddress: '0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57',
-    augustusRFQAddress: '0x2DF17455B96Dde3618FD6B1C3a9AA06D6aB89347',
-    tokenTransferProxyAddress: '0x216b4b4ba9f3e719726886d34a177484278bfcae',
+    augustusAddress: '0x0000000000000000000000000000000000000000',
+    augustusRFQAddress: '0x92EaD5bACf6F0E995FA46Ad8215A9b11f67ca241',
+    tokenTransferProxyAddress: '0x0000000000000000000000000000000000000000',
     multicallV2Address: '0xcA11bde05977b3631167028862bE2a173976CA11', // v3
     privateHttpProvider: process.env.HTTP_PROVIDER_146,
     hashFlowAuthToken: process.env.API_KEY_HASHFLOW_AUTH_TOKEN || '',
