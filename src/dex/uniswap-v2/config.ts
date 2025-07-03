@@ -279,15 +279,6 @@ export const UniswapV2Config: DexConfigMap<DexParams> = {
       feeCode: 30,
     },
   },
-  KnightSwap: {
-    [Network.FANTOM]: {
-      subgraphURL: 'Fuygw2tyo693QMagUQCvfRpPiKjD7jVUa1wUPfzjsKxG',
-      factoryAddress: '0x7d82f56ea0820a9d42b01c3c28f1997721732218',
-      initCode:
-        '0x2e8dbc8cf79694a7ef827213d52da525b45ddf645a4abd477fcb4af09bfb5f0e',
-      feeCode: 20,
-    },
-  },
   LinkSwap: {
     [Network.MAINNET]: {
       subgraphURL: '3H25xhPJELikCCTfQD8r1gYn3sM7CUtau3nspbo496rR',

@@ -252,7 +252,7 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     isTestnet: false,
     nativeTokenName: 'Sonic',
     nativeTokenSymbol: 'S',
-    wrappedNativeTokenAddress: '0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38',
+    wrappedNativeTokenAddress: '0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38',
     hasEIP1559: true,
     augustusAddress: '0x0000000000000000000000000000000000000000',
     augustusRFQAddress: '0x92EaD5bACf6F0E995FA46Ad8215A9b11f67ca241',

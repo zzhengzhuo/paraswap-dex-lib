@@ -85,14 +85,6 @@ export const Config: DexConfigMap<DexParam> = {
 export const Adapters: {
   [chainId: number]: { [side: string]: { name: string; index: number }[] };
 } = {
-  [Network.FANTOM]: {
-    [SwapSide.SELL]: [
-      {
-        name: 'FantomAdapter01',
-        index: 6,
-      },
-    ],
-  },
   [Network.POLYGON]: {
     [SwapSide.SELL]: [
       {
