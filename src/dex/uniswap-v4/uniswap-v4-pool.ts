@@ -484,10 +484,11 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
     try {
       const event = this.logDecoder(log);
       if (event.name in this.handlers) {
-        const _state = _.cloneDeep(state) as PoolState;
-
         const id = event.args.id.toLowerCase();
+
         if (id && id !== this.poolId.toLowerCase()) return null; // skip not relevant events
+
+        const _state = _.cloneDeep(state) as PoolState;
 
         try {
           const newState = await this.handlers[event.name](
