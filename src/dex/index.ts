@@ -28,7 +28,6 @@ import { IDexHelper } from '../dex-helper';
 import { SwapSide } from '../constants';
 import { Adapters } from '../types';
 import { Lido } from './lido/lido';
-import { Excalibur } from './uniswap-v2/excalibur';
 import { MakerPsm } from './maker-psm/maker-psm';
 import { KyberDmm } from './kyberdmm/kyberdmm';
 import { GMX } from './gmx/gmx';
@@ -152,7 +151,6 @@ const Dexes = [
   BiSwap,
   MDEX,
   Dfyn,
-  Excalibur,
   AaveV2,
   AaveV3,
   IdleDao,
