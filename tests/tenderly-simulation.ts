@@ -212,16 +212,16 @@ export class TenderlySimulator {
 
   public async simulateTransaction(
     request: SimulateTransactionRequest,
-    forceAPI = false,
+    forceSimulationAPI = false,
   ): Promise<Simulation> {
-    if (TENDERLY_VNET_ID && !forceAPI) {
-      return this.useVNetSimulation(request);
+    if (TENDERLY_VNET_ID && !forceSimulationAPI) {
+      return this.simulateWithTenderlyVNet(request);
     } else {
-      return this.useAPISimulation(request);
+      return this.simulateWithTenderlySimulationAPI(request);
     }
   }
 
-  private async useAPISimulation(
+  private async simulateWithTenderlySimulationAPI(
     request: SimulateTransactionRequest,
   ): Promise<Simulation> {
     const data = {
@@ -256,7 +256,7 @@ export class TenderlySimulator {
     return response.data.simulation;
   }
 
-  private async useVNetSimulation(
+  private async simulateWithTenderlyVNet(
     request: SimulateTransactionRequest,
   ): Promise<Simulation> {
     const data = {
@@ -488,7 +488,7 @@ export class TenderlySimulator {
 
     const { id: simulationId } = await this.simulateTransaction(
       balanceOfSimulationRequest,
-      true, // force API simulation
+      true, // force Tenderly simulation API
     );
 
     const simulationDetails = await this.getSimulatedTransactionDetails(
@@ -589,7 +589,7 @@ export class TenderlySimulator {
 
     const { id: simulationId } = await this.simulateTransaction(
       allowanceSimulationRequest,
-      true, // force API simulation
+      true, // force Tenderly simulation API
     );
 
     const simulationDetails = await this.getSimulatedTransactionDetails(
