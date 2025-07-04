@@ -466,6 +466,19 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
       subgraphURL: 'GENunSHWLBXm59mBSgPzQ8metBEp9YDfdqwFr91Av1UM',
     },
   },
+  Wagmi: {
+    [Network.SONIC]: {
+      factory: '0x56CFC796bC88C9c7e1b38C2b0aF9B7120B079aef',
+      quoter: '0x5973C9E4cC849140cfd1c9dFc75D54D804B5a2fE',
+      router: '0x9282a6C62932431B127753C1CD2ac4F6cC4CFD49',
+      supportedFees: SUPPORTED_FEES,
+      stateMulticall: '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc',
+      uniswapMulticall: '0x5d6b0f5335ec95cD2aB7E52f2A0750dd86502435',
+      chunksCount: 10,
+      initRetryFrequency: 10,
+      initHash: `0x30146866f3a846fe3c636beb2756dbd24cf321bc52c9113c837c21f47470dfeb`,
+    },
+  },
 };
 
 export const Adapters: Record<number, AdapterMappings> = {

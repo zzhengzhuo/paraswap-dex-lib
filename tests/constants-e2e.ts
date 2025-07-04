@@ -862,6 +862,10 @@ export const Tokens: {
       address: '0x7a0c53f7eb34c5bc8b01691723669ada9d6cb384',
       decimals: 18,
     },
+    WAGMI: {
+      address: '0x0e0Ce4D450c705F8a0B6Dd9d5123e3df2787D16B',
+      decimals: 18,
+    },
   },
   [Network.BSC]: {
     POPS: {

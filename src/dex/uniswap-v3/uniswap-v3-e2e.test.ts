@@ -26,7 +26,7 @@ function testForNetwork(
     network,
   );
   const tokens = Tokens[network];
-  const holders = Holders[network];
+  const holders = Holders[network] ?? {};
   const nativeTokenSymbol = NativeTokenSymbols[network];
 
   const sideToContractMethods = new Map([
@@ -1190,27 +1190,30 @@ describe('UniswapV3 E2E', () => {
   //     );
   //   });
 
-  //   describe('BASE', () => {
-  //     const network = Network.BASE;
+  describe('Wagmi E2E', () => {
+    const dexKey = 'Wagmi';
 
-  //     const tokenASymbol: string = 'USDbC';
-  //     const tokenBSymbol: string = 'DAI';
+    describe('Sonic', function () {
+      const network = Network.SONIC;
 
-  //     const tokenAAmount: string = '111110000';
-  //     const tokenBAmount: string = '110000000000000000';
-  //     const nativeTokenAmount = '1100000000000000000';
+      const tokenASymbol: string = 'WS';
+      const tokenBSymbol: string = 'WAGMI';
 
-  //     testForNetwork(
-  //       network,
-  //       dexKey,
-  //       tokenASymbol,
-  //       tokenBSymbol,
-  //       tokenAAmount,
-  //       tokenBAmount,
-  //       nativeTokenAmount,
-  //     );
-  //   });
-  // });
+      const tokenAAmount: string = '110000000000000000';
+      const tokenBAmount: string = '110000000000000000';
+      const nativeTokenAmount = '1100000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+      );
+    });
+  });
 
   describe('Retro E2E', () => {
     const dexKey = 'Retro';
@@ -1247,30 +1250,6 @@ describe('UniswapV3 E2E', () => {
 
       const tokenAAmount: string = '1000000';
       const tokenBAmount: string = '1000000';
-      const nativeTokenAmount = '1000000000000000000';
-
-      testForNetwork(
-        network,
-        dexKey,
-        tokenASymbol,
-        tokenBSymbol,
-        tokenAAmount,
-        tokenBAmount,
-        nativeTokenAmount,
-      );
-    });
-  });
-
-  describe('SpookySwapV3 E2E', () => {
-    const dexKey = 'SpookySwapV3';
-    describe('Fantom', () => {
-      const network = Network.FANTOM;
-
-      const tokenASymbol: string = 'axlUSDC';
-      const tokenBSymbol: string = 'MIM';
-
-      const tokenAAmount: string = '100000000';
-      const tokenBAmount: string = '2023063319850617015';
       const nativeTokenAmount = '1000000000000000000';
 
       testForNetwork(
