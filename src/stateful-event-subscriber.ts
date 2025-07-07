@@ -254,7 +254,6 @@ export abstract class StatefulEventSubscriber<State>
     blockHeaders: Readonly<{ [blockNumber: number]: Readonly<BlockHeader> }>,
   ): Promise<void> {
     if (this.inactive) {
-      // todo: change to `trace` after testing
       this.logger.info('Skipping updating inactive pool');
       return;
     }
@@ -314,7 +313,7 @@ export abstract class StatefulEventSubscriber<State>
     ) {
       const network = this.dexHelper.config.data.network;
       const createNewState = async () => {
-        if (this.state !== null) {
+        if (this.state !== null || this.inactive) {
           return true;
         }
         const latestBlockNumber =
