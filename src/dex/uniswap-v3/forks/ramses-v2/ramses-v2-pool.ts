@@ -100,10 +100,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
       bigint,
     ];
 
-    const inactiveTimestampMs = Date.now() - INACTIVE_POOL_AGE_MS;
-    const isActive =
-      inactiveTimestampMs < _state.observation.blockTimestamp * 1000;
-    assert(isActive, 'Pool is inactive');
+    this._assetActivePool(_state);
 
     const tickBitmap = {};
     const ticks = {};

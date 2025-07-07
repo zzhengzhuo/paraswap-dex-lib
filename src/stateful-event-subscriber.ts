@@ -35,6 +35,9 @@ export abstract class StatefulEventSubscriber<State>
   //Invalid flag - indicates that the currently stored state might not be valid
   protected invalid: boolean = false;
 
+  // Indicates that state should not be tracked/updated
+  public inactive: boolean = false;
+
   isTracking: () => boolean = () => false;
   public addressesSubscribed: string[] = [];
 
@@ -250,6 +253,12 @@ export abstract class StatefulEventSubscriber<State>
     logs: Readonly<Log>[],
     blockHeaders: Readonly<{ [blockNumber: number]: Readonly<BlockHeader> }>,
   ): Promise<void> {
+    if (this.inactive) {
+      // todo: change to `trace` after testing
+      this.logger.info('Skipping updating inactive pool');
+      return;
+    }
+
     let index = 0;
     let lastBlockNumber: number | undefined;
     while (index < logs.length) {
