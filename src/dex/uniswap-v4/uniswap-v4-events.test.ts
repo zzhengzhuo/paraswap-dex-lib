@@ -539,6 +539,110 @@ describe('UniswapV4 events', () => {
         });
       });
     });
+
+    describe('UniswapV4Pool USDC / USD1 (0xaa1e84de6a89656e07eb098d53d004c9d1f6716a1d3bb4be54cfdd40e781b7a2)', () => {
+      const blockNumbers: { [eventName: string]: number[] } = {
+        ['Swap']: [
+          32601138, // https://bscscan.com/tx/0xba3da8e821fffc3e11fd04053ee5b3df6f5a6a25383d5cc69c3e406f89a1607b
+        ],
+      };
+
+      Object.keys(blockNumbers).forEach((event: string) => {
+        blockNumbers[event].forEach((blockNumber: number) => {
+          it(`${event}:${blockNumber} - should return correct state`, async function () {
+            const dexHelper = new DummyDexHelper(network);
+
+            const logger = dexHelper.getLogger(dexKey);
+
+            const uniswapV4Pool = new UniswapV4Pool(
+              dexHelper,
+              dexKey,
+              network,
+              config,
+              logger,
+              '',
+              '0xaa1e84de6a89656e07eb098d53d004c9d1f6716a1d3bb4be54cfdd40e781b7a2', // initial params from Initialize event
+              '0x0000000000000000000000000000000000000000',
+              '0x616b416f777e3dc904a44aa259a475bf26d06ef9',
+              '100000',
+              '0x0000000000000000000000000000000000000000',
+              0n,
+              '0',
+              '2000',
+            );
+
+            // no need to initialize pool, as state is set on testEventSubscriber eventSubscriber.setState(
+            // await uniswapV4Pool.initialize(blockNumber);
+
+            await testEventSubscriber(
+              uniswapV4Pool,
+              uniswapV4Pool.addressesSubscribed,
+              (_blockNumber: number) =>
+                fetchPoolStateFromContract(
+                  uniswapV4Pool,
+                  _blockNumber,
+                  config.poolManager,
+                ),
+              blockNumber,
+              `${dexKey}_${config.poolManager}_${uniswapV4Pool.poolId}`,
+              dexHelper.provider,
+            );
+          });
+        });
+      });
+    });
+
+    describe.only('UniswapV4Pool USDC / USD1 (0x5bd7db5892be4b43834d9c35960e112d08ba89f45c2da8d286661c9352b814bc)', () => {
+      const blockNumbers: { [eventName: string]: number[] } = {
+        ['Swap']: [
+          32601921, // https://basescan.org/tx/0xebb99cc21ce04ec12de8134d639250eba7a128d90705371a655966e44c842d4c
+        ],
+      };
+
+      Object.keys(blockNumbers).forEach((event: string) => {
+        blockNumbers[event].forEach((blockNumber: number) => {
+          it(`${event}:${blockNumber} - should return correct state`, async function () {
+            const dexHelper = new DummyDexHelper(network);
+
+            const logger = dexHelper.getLogger(dexKey);
+
+            const uniswapV4Pool = new UniswapV4Pool(
+              dexHelper,
+              dexKey,
+              network,
+              config,
+              logger,
+              '',
+              '0x5bd7db5892be4b43834d9c35960e112d08ba89f45c2da8d286661c9352b814bc', // initial params from Initialize event
+              '0x0000000000000000000000000000000000000000',
+              '0x616b416f777e3dc904a44aa259a475bf26d06ef9',
+              '100',
+              '0x0000000000000000000000000000000000000000',
+              0n,
+              '0',
+              '1',
+            );
+
+            // no need to initialize pool, as state is set on testEventSubscriber eventSubscriber.setState(
+            // await uniswapV4Pool.initialize(blockNumber);
+
+            await testEventSubscriber(
+              uniswapV4Pool,
+              uniswapV4Pool.addressesSubscribed,
+              (_blockNumber: number) =>
+                fetchPoolStateFromContract(
+                  uniswapV4Pool,
+                  _blockNumber,
+                  config.poolManager,
+                ),
+              blockNumber,
+              `${dexKey}_${config.poolManager}_${uniswapV4Pool.poolId}`,
+              dexHelper.provider,
+            );
+          });
+        });
+      });
+    });
   });
 
   describe('Arbitrum', () => {
@@ -938,6 +1042,115 @@ describe('UniswapV4 events', () => {
               4083811512172838615060060n,
               '-197471',
               '10',
+            );
+
+            // no need to initialize pool, as state is set on testEventSubscriber eventSubscriber.setState(
+            // await uniswapV4Pool.initialize(blockNumber);
+
+            await testEventSubscriber(
+              uniswapV4Pool,
+              uniswapV4Pool.addressesSubscribed,
+              (_blockNumber: number) =>
+                fetchPoolStateFromContract(
+                  uniswapV4Pool,
+                  _blockNumber,
+                  config.poolManager,
+                ),
+              blockNumber,
+              `${dexKey}_${config.poolManager}_${uniswapV4Pool.poolId}`,
+              dexHelper.provider,
+            );
+          });
+        });
+      });
+    });
+  });
+
+  describe('BSC', () => {
+    const network = Network.BSC;
+    const config = UniswapV4Config[dexKey][network];
+
+    describe('UniswapV4Pool USDC / USD1 (0xd6183866d971fadce6225b1e3b21226b8879d344fac4074569dd7c26367b0fbc)', () => {
+      const blockNumbers: { [eventName: string]: number[] } = {
+        ['Swap']: [
+          53323488, // https://bscscan.com/tx/0xba3da8e821fffc3e11fd04053ee5b3df6f5a6a25383d5cc69c3e406f89a1607b
+        ],
+      };
+
+      Object.keys(blockNumbers).forEach((event: string) => {
+        blockNumbers[event].forEach((blockNumber: number) => {
+          it(`${event}:${blockNumber} - should return correct state`, async function () {
+            const dexHelper = new DummyDexHelper(network);
+
+            const logger = dexHelper.getLogger(dexKey);
+
+            const uniswapV4Pool = new UniswapV4Pool(
+              dexHelper,
+              dexKey,
+              network,
+              config,
+              logger,
+              '',
+              '0xd6183866d971fadce6225b1e3b21226b8879d344fac4074569dd7c26367b0fbc', // initial params from Initialize event
+              '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+              '0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d',
+              '65',
+              '0x0000000000000000000000000000000000000000',
+              0n,
+              '0',
+              '1',
+            );
+
+            // no need to initialize pool, as state is set on testEventSubscriber eventSubscriber.setState(
+            // await uniswapV4Pool.initialize(blockNumber);
+
+            await testEventSubscriber(
+              uniswapV4Pool,
+              uniswapV4Pool.addressesSubscribed,
+              (_blockNumber: number) =>
+                fetchPoolStateFromContract(
+                  uniswapV4Pool,
+                  _blockNumber,
+                  config.poolManager,
+                ),
+              blockNumber,
+              `${dexKey}_${config.poolManager}_${uniswapV4Pool.poolId}`,
+              dexHelper.provider,
+            );
+          });
+        });
+      });
+    });
+
+    describe('UniswapV4Pool USDC / USD1 (0xa7e4b8ebc6fa9f4c12b0ab806e263e0fc2ca944e9287ba1e68b36b1a0dfca024)', () => {
+      const blockNumbers: { [eventName: string]: number[] } = {
+        ['ModifyLiquidity']: [
+          53326437, // https://bscscan.com/tx/0xba3da8e821fffc3e11fd04053ee5b3df6f5a6a25383d5cc69c3e406f89a1607b
+        ],
+      };
+
+      Object.keys(blockNumbers).forEach((event: string) => {
+        blockNumbers[event].forEach((blockNumber: number) => {
+          it(`${event}:${blockNumber} - should return correct state`, async function () {
+            const dexHelper = new DummyDexHelper(network);
+
+            const logger = dexHelper.getLogger(dexKey);
+
+            const uniswapV4Pool = new UniswapV4Pool(
+              dexHelper,
+              dexKey,
+              network,
+              config,
+              logger,
+              '',
+              '0xa7e4b8ebc6fa9f4c12b0ab806e263e0fc2ca944e9287ba1e68b36b1a0dfca024', // initial params from Initialize event
+              '0x0000000000000000000000000000000000000000',
+              '0x7352cdbca63f62358f08f6514d3b7ff2a2872aad',
+              '880000',
+              '0x0000000000000000000000000000000000000000',
+              0n,
+              '0',
+              '17600',
             );
 
             // no need to initialize pool, as state is set on testEventSubscriber eventSubscriber.setState(
