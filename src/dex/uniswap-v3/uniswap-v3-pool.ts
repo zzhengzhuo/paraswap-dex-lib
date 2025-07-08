@@ -316,7 +316,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       resState.returnData,
     ] as [bigint, bigint, DecodedStateMultiCallResultWithRelativeBitmaps];
 
-    this._assetActivePool(_state);
+    this._assertActivePool(_state);
 
     const tickBitmap = {};
     const ticks = {};
@@ -565,7 +565,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
     );
   }
 
-  protected _assetActivePool(
+  protected _assertActivePool(
     state: Readonly<DecodedStateMultiCallResultWithRelativeBitmaps>,
   ) {
     // todo: remove after testing

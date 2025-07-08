@@ -102,7 +102,7 @@ export class VelodromeSlipstreamEventPool extends UniswapV3EventPool {
       DecodedStateMultiCallResultWithRelativeBitmaps,
     ];
 
-    this._assetActivePool(_state);
+    this._assertActivePool(_state);
 
     const tickBitmap = {};
     const ticks = {};
