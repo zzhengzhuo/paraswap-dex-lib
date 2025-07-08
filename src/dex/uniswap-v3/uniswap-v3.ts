@@ -280,7 +280,7 @@ export class UniswapV3
     if (pool === null) return null;
 
     if (pool) {
-      if (pool.inactive) {
+      if (pool.isInactive()) {
         return null;
       } else if (!pool.initFailed) {
         return pool;

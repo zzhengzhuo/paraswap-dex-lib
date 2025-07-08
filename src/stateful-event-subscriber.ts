@@ -36,9 +36,11 @@ export abstract class StatefulEventSubscriber<State>
   protected invalid: boolean = false;
 
   // Indicates that state should not be tracked/updated
-  public inactive: boolean = false;
+  protected inactive: boolean = false;
 
   isTracking: () => boolean = () => false;
+  isInactive: () => boolean = () => this.inactive;
+
   public addressesSubscribed: string[] = [];
 
   public cacheName: string;
@@ -370,6 +372,13 @@ export abstract class StatefulEventSubscriber<State>
         }
       }
     }
+  }
+
+  inactivate(): void {
+    this.logger.info(
+      `StatefulEventSubscriber_1 inactivate: ${this.parentName}: ${this.name}`,
+    );
+    this.inactive = true;
   }
 
   invalidate(): void {

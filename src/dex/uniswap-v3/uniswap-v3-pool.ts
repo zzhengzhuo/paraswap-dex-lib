@@ -582,7 +582,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       inactiveTimestampMs < state.observation.blockTimestamp * 1000;
 
     if (!isActive) {
-      this.inactive = true;
+      this.inactivate();
       throw new Error('Pool is inactive');
     }
   }
