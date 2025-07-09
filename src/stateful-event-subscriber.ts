@@ -256,7 +256,7 @@ export abstract class StatefulEventSubscriber<State>
     blockHeaders: Readonly<{ [blockNumber: number]: Readonly<BlockHeader> }>,
   ): Promise<void> {
     if (this.inactive) {
-      this.logger.warn('Skipping updating inactive pool');
+      this.logger.warn(`Skipping updating inactive pool ${this.name}`);
       return;
     }
 
