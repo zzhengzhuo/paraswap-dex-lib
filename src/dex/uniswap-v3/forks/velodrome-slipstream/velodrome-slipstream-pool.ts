@@ -15,7 +15,6 @@ import { _reduceTickBitmap, _reduceTicks } from '../../contract-math/utils';
 import { bigIntify } from '../../../../utils';
 import { TickBitMap } from '../../contract-math/TickBitMap';
 import { ethers } from 'ethers';
-import { INACTIVE_POOL_AGE_MS } from '../../constants';
 
 export class VelodromeSlipstreamEventPool extends UniswapV3EventPool {
   public readonly poolIface = new Interface(VelodromeSlipstreamPoolABI);
