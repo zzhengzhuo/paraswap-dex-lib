@@ -568,15 +568,6 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
   protected _assertActivePool(
     state: Readonly<DecodedStateMultiCallResultWithRelativeBitmaps>,
   ) {
-    // todo: remove after testing
-    if (
-      !this.isInitialized &&
-      this.poolAddress.toLowerCase() ===
-        '0x4cfe31b4f39a534f06c4a81ed8c4e26ba704a571'
-    ) {
-      return;
-    }
-
     const inactiveTimestampMs = Date.now() - INACTIVE_POOL_AGE_MS;
     const isActive =
       inactiveTimestampMs < state.observation.blockTimestamp * 1000;
