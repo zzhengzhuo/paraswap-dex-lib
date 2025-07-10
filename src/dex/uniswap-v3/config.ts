@@ -439,6 +439,7 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
       chunksCount: 10,
       initRetryFrequency: 10,
       initHash: '0x321f7dfb9b2ea9131b8c17691cf6e01e5c149ca8', // pool implementation address from factory contract is used instead of initHash here
+      subgraphURL: '3xqRjKD8dQhWnennAswpff5AFcYYXudFA4UWch4AB2Hb',
       liquidityField: 'liquidity',
     },
   },
