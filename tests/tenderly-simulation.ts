@@ -5,10 +5,12 @@ import { ethers } from 'ethers';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ETHER_ADDRESS } from '../src/constants';
+import { merge } from 'lodash';
 
 const TENDERLY_TOKEN = process.env.TENDERLY_TOKEN!;
 const TENDERLY_ACCOUNT_ID = process.env.TENDERLY_ACCOUNT_ID!;
 const TENDERLY_PROJECT = process.env.TENDERLY_PROJECT!;
+const TENDERLY_VNET_ID = process.env.TENDERLY_VNET_ID!;
 
 interface StateObject {
   // Overrides of storage slots.
@@ -26,6 +28,8 @@ interface TokenStorageSlots {
   balanceSlot: string;
   allowanceSlot: string;
   isVyper?: boolean;
+  stateProxy?: string;
+  additionalOverrides?: StateOverride;
 }
 
 interface SimulateTransactionRequest {
@@ -73,6 +77,10 @@ interface SimulatedTransactionCall {
   storage_slot: string[] | undefined;
   calls: SimulatedTransactionCall[] | null;
 }
+
+type SimulatedTransactionCallWithParent = SimulatedTransactionCall & {
+  parentCall: SimulatedTransactionCall | null;
+};
 
 // not fully complete
 interface Simulation {
@@ -204,6 +212,17 @@ export class TenderlySimulator {
 
   public async simulateTransaction(
     request: SimulateTransactionRequest,
+    forceSimulationAPI = false,
+  ): Promise<Simulation> {
+    if (TENDERLY_VNET_ID && !forceSimulationAPI) {
+      return this.simulateWithTenderlyVNet(request);
+    } else {
+      return this.simulateWithTenderlySimulationAPI(request);
+    }
+  }
+
+  private async simulateWithTenderlySimulationAPI(
+    request: SimulateTransactionRequest,
   ): Promise<Simulation> {
     const data = {
       network_id: request.chainId,
@@ -220,22 +239,56 @@ export class TenderlySimulator {
     console.log('Sending transaction simulation with params:');
     console.log(JSON.stringify(data, null, 2));
 
-    const response = await axios.request({
-      method: 'POST',
-      url: `https://api.tenderly.co/api/v1/account/${TENDERLY_ACCOUNT_ID}/project/${TENDERLY_PROJECT}/simulate`,
-      headers: {
-        'X-Access-Key': TENDERLY_TOKEN,
-      },
+    const response = await axios.post(
+      `https://api.tenderly.co/api/v1/account/${TENDERLY_ACCOUNT_ID}/project/${TENDERLY_PROJECT}/simulate`,
       data,
-    });
+      {
+        headers: {
+          'X-Access-Key': TENDERLY_TOKEN,
+        },
+      },
+    );
 
-    const simulation = response.data.simulation as Simulation;
-    const url = `https://dashboard.tenderly.co/${TENDERLY_ACCOUNT_ID}/${TENDERLY_PROJECT}/simulator/${simulation.id}`;
-
+    const url = `https://dashboard.tenderly.co/${TENDERLY_ACCOUNT_ID}/${TENDERLY_PROJECT}/simulator/${response.data.simulation.id}`;
     console.log('Successfully simulated a transaction:');
     console.log(`Simulation URL - ${url}`);
 
-    return simulation;
+    return response.data.simulation;
+  }
+
+  private async simulateWithTenderlyVNet(
+    request: SimulateTransactionRequest,
+  ): Promise<Simulation> {
+    const data = {
+      network_id: request.chainId,
+      from: request.from,
+      to: request.to,
+      input: request.data,
+      value: request.value,
+      save: true,
+      save_if_fails: true,
+      state_objects: request.stateOverride,
+      block_number: request.blockNumber,
+    };
+
+    console.log('Sending transaction simulation with params:');
+    console.log(JSON.stringify(data, null, 2));
+
+    const response = await axios.post(
+      `https://api.tenderly.co/api/v1/account/${TENDERLY_ACCOUNT_ID}/project/${TENDERLY_PROJECT}/testnet/${TENDERLY_VNET_ID}/simulate`,
+      data,
+      {
+        headers: {
+          'X-Access-Key': TENDERLY_TOKEN,
+        },
+      },
+    );
+
+    const url = `https://dashboard.tenderly.co/${TENDERLY_ACCOUNT_ID}/${TENDERLY_PROJECT}/testnet/${TENDERLY_VNET_ID}/simulator/${response.data.simulation.id}`;
+    console.log('Successfully simulated a transaction:');
+    console.log(`Simulation URL - ${url}`);
+
+    return response.data.simulation;
   }
 
   public async getSimulatedTransactionDetails(
@@ -257,16 +310,17 @@ export class TenderlySimulator {
 
   getSLOADCalls = (
     callTrace: SimulatedTransactionCall,
-  ): SimulatedTransactionCall[] => {
-    const results: SimulatedTransactionCall[] = [];
+    parentCall: SimulatedTransactionCall | null = null,
+  ): SimulatedTransactionCallWithParent[] => {
+    const results: SimulatedTransactionCallWithParent[] = [];
 
     if (callTrace.call_type === 'SLOAD') {
-      results.push(callTrace);
+      results.push({ ...callTrace, parentCall });
     }
 
     if (callTrace.calls) {
       for (const call of callTrace.calls) {
-        results.push(...this.getSLOADCalls(call));
+        results.push(...this.getSLOADCalls(call, callTrace));
       }
     }
 
@@ -423,7 +477,7 @@ export class TenderlySimulator {
   async findTokenBalanceOfSlot(
     chainId: number,
     token: string,
-  ): Promise<{ slot: string; isVyper?: boolean }> {
+  ): Promise<{ slot: string; isVyper?: boolean; stateProxy?: string }> {
     const account = TenderlySimulator.DEFAULT_OWNER;
 
     const balanceOfSimulationRequest = this.buildBalanceOfSimulationRequest(
@@ -434,6 +488,7 @@ export class TenderlySimulator {
 
     const { id: simulationId } = await this.simulateTransaction(
       balanceOfSimulationRequest,
+      true, // force Tenderly simulation API
     );
 
     const simulationDetails = await this.getSimulatedTransactionDetails(
@@ -449,8 +504,12 @@ export class TenderlySimulator {
     const sloadCalls = this.getSLOADCalls(callTrace);
     // token's storage slots that were read during the `balanceOf` call
     const readSlots = sloadCalls
-      .map(call => call.storage_slot?.[0])
-      .filter<string>((slot): slot is string => !!slot);
+      .map(call => ({
+        slot: call.storage_slot?.[0],
+        address: call.storage_address,
+        parentCallType: call.parentCall ? call.parentCall.call_type : null,
+      }))
+      .filter(({ slot }) => !!slot);
 
     const startingPoints = [
       // regular contract
@@ -472,16 +531,33 @@ export class TenderlySimulator {
           candidateSlot,
           account,
         );
-        if (readSlots.includes(solitidyBalanceOfSlot)) {
-          return { slot: candidateSlot };
+        const foundSoliditySlot = readSlots.find(
+          ({ slot }) => slot === solitidyBalanceOfSlot,
+        );
+        if (foundSoliditySlot) {
+          return foundSoliditySlot.address !== token.toLowerCase() &&
+            foundSoliditySlot.parentCallType !== 'DELEGATECALL'
+            ? { slot: candidateSlot, stateProxy: foundSoliditySlot.address }
+            : { slot: candidateSlot };
         }
         // try vyper slot
         const vyperBalanceOfSlot = this.calculateVyperAddressBalanceSlot(
           candidateSlot,
           account,
         );
-        if (readSlots.includes(vyperBalanceOfSlot)) {
-          return { slot: candidateSlot, isVyper: true };
+        const foundVyperSlot = readSlots.find(
+          ({ slot }) => slot === vyperBalanceOfSlot,
+        );
+
+        if (foundVyperSlot) {
+          return foundVyperSlot.address === token.toLowerCase() &&
+            foundVyperSlot.parentCallType !== 'DELEGATECALL'
+            ? {
+                slot: candidateSlot,
+                isVyper: true,
+                stateProxy: foundVyperSlot.address,
+              }
+            : { slot: candidateSlot, isVyper: true };
         }
       }
     }
@@ -500,7 +576,7 @@ export class TenderlySimulator {
   async findTokenAllowanceSlot(
     chainId: number,
     token: string,
-  ): Promise<{ slot: string; isVyper?: boolean }> {
+  ): Promise<{ slot: string; isVyper?: boolean; stateProxy?: string }> {
     const account = TenderlySimulator.DEFAULT_OWNER;
     const spender = TenderlySimulator.DEFAULT_SPENDER;
 
@@ -513,6 +589,7 @@ export class TenderlySimulator {
 
     const { id: simulationId } = await this.simulateTransaction(
       allowanceSimulationRequest,
+      true, // force Tenderly simulation API
     );
 
     const simulationDetails = await this.getSimulatedTransactionDetails(
@@ -525,11 +602,19 @@ export class TenderlySimulator {
 
     const callTrace = simulationDetails.transaction.transaction_info.call_trace;
 
+    // console.log(callTrace);
+
     const sloadCalls = this.getSLOADCalls(callTrace);
     // token's storage slots that were read during the `allowance` call
     const readSlots = sloadCalls
-      .map(call => call.storage_slot?.[0])
-      .filter<string>((slot): slot is string => !!slot);
+      .map(call => ({
+        slot: call.storage_slot?.[0],
+        address: call.storage_address,
+        parentCallType: call.parentCall ? call.parentCall.call_type : null,
+      }))
+      .filter(({ slot }) => !!slot);
+
+    console.log(readSlots);
 
     const startingPoints = [
       // regular contract
@@ -553,17 +638,44 @@ export class TenderlySimulator {
             account,
             spender,
           );
-        if (readSlots.includes(solidityAllowanceSlot)) {
-          return { slot: candidateSlot };
+
+        const foundSoliditySlot = readSlots.find(
+          ({ slot }) => solidityAllowanceSlot === slot,
+        );
+
+        if (foundSoliditySlot) {
+          return token.toLowerCase() !== foundSoliditySlot.address &&
+            foundSoliditySlot.parentCallType !== 'DELEGATECALL'
+            ? {
+                slot: candidateSlot,
+                stateProxy: foundSoliditySlot.address,
+              }
+            : {
+                slot: candidateSlot,
+              };
         }
+
         // try vyper
         const vyperAllowanceSlot = this.calculateVyperAddressAllowanceSlot(
           candidateSlot,
           account,
           spender,
         );
-        if (readSlots.includes(vyperAllowanceSlot)) {
-          return { slot: candidateSlot, isVyper: true };
+
+        const foundVyperSlot = readSlots.find(
+          ({ slot }) => vyperAllowanceSlot === slot,
+        );
+
+        if (foundVyperSlot) {
+          return token.toLowerCase() !== foundVyperSlot.address &&
+            foundVyperSlot.parentCallType !== 'DELEGATECALL'
+            ? {
+                slot: candidateSlot,
+                stateProxy: foundVyperSlot.address,
+              }
+            : {
+                slot: candidateSlot,
+              };
         }
       }
     }
@@ -610,6 +722,7 @@ export class TenderlySimulator {
       balanceSlot: balanceSlot.slot,
       allowanceSlot: allowanceSlot.slot,
       isVyper: balanceSlot.isVyper,
+      stateProxy: balanceSlot.stateProxy,
     };
 
     // no need to await
@@ -658,10 +771,15 @@ export class TenderlySimulator {
       tokenSlots.isVyper,
     );
     // add the balance override
-    stateOverride[token] ||= {};
-    stateOverride[token].storage ||= {};
-    stateOverride[token].storage[slotToOverride] =
+    const address = tokenSlots.stateProxy ? tokenSlots.stateProxy : token;
+    stateOverride[address] ||= {};
+    stateOverride[address].storage ||= {};
+    stateOverride[address].storage[slotToOverride] =
       ethers.utils.defaultAbiCoder.encode(['uint'], [amount]);
+
+    if (tokenSlots.additionalOverrides) {
+      merge(stateOverride, tokenSlots.additionalOverrides);
+    }
   }
 
   /**
@@ -691,9 +809,14 @@ export class TenderlySimulator {
       tokenSlots.isVyper,
     );
     // add the allowance override
-    stateOverride[token] ||= {};
-    stateOverride[token].storage ||= {};
-    stateOverride[token].storage[slotToOverride] =
+    const address = tokenSlots.stateProxy ? tokenSlots.stateProxy : token;
+    stateOverride[address] ||= {};
+    stateOverride[address].storage ||= {};
+    stateOverride[address].storage[slotToOverride] =
       ethers.utils.defaultAbiCoder.encode(['uint'], [amount]);
+
+    if (tokenSlots.additionalOverrides) {
+      merge(stateOverride, tokenSlots.additionalOverrides);
+    }
   }
 }

@@ -37,6 +37,7 @@ import {
   UniswapV3Param,
   UniswapV3ParamsDirect,
   UniswapV3ParamsDirectBase,
+  UniswapV3Router,
   UniswapV3SimpleSwapParams,
 } from './types';
 import {
@@ -46,6 +47,7 @@ import {
 import { Adapters, PoolsToPreload, UniswapV3Config } from './config';
 import { UniswapV3EventPool } from './uniswap-v3-pool';
 import UniswapV3RouterABI from '../../abi/uniswap-v3/UniswapV3Router.abi.json';
+import UniswapSwapRouter02ABI from '../../abi/uniswap-v3/UniswapSwapRouter02.abi.json';
 import UniswapV3QuoterV2ABI from '../../abi/uniswap-v3/UniswapV3QuoterV2.abi.json';
 import UniswapV3MultiABI from '../../abi/uniswap-v3/UniswapMulti.abi.json';
 import DirectSwapABI from '../../abi/DirectSwap.json';
@@ -89,6 +91,7 @@ export class UniswapV3
   implements IDex<UniswapV3Data, UniswapV3Param | UniswapV3ParamsDirect>
 {
   protected readonly factory: UniswapV3Factory;
+  readonly routerIface: Interface;
   readonly isFeeOnTransferSupported: boolean = false;
   readonly eventPools: Record<string, UniswapV3EventPool | null> = {};
 
@@ -114,6 +117,7 @@ export class UniswapV3
         'AlienBaseV3',
         'OkuTradeV3',
         'PangolinV3',
+        'Wagmi',
       ]),
     );
 
@@ -129,7 +133,6 @@ export class UniswapV3
     dexKey: string,
     protected dexHelper: IDexHelper,
     protected adapters = Adapters[network] || {},
-    readonly routerIface = new Interface(UniswapV3RouterABI),
     readonly quoterIface = new Interface(UniswapV3QuoterV2ABI),
     protected config = UniswapV3Config[dexKey][network],
     protected poolsToPreload = PoolsToPreload[dexKey]?.[network] || [],
@@ -140,6 +143,11 @@ export class UniswapV3
       UniswapV3Config[dexKey][network].subgraphType,
   ) {
     super(dexHelper, dexKey);
+    const routerABI =
+      this.config.routerType === UniswapV3Router.SwapRouter02
+        ? UniswapSwapRouter02ABI
+        : UniswapV3RouterABI;
+    this.routerIface = new Interface(routerABI);
     this.logger = dexHelper.getLogger(dexKey + '-' + network);
     this.uniswapMulti = new this.dexHelper.web3Provider.eth.Contract(
       UniswapV3MultiABI as AbiItem[],
@@ -273,7 +281,9 @@ export class UniswapV3
     if (pool === null) return null;
 
     if (pool) {
-      if (!pool.initFailed) {
+      if (pool.isInactive()) {
+        return null;
+      } else if (!pool.initFailed) {
         return pool;
       } else {
         // if init failed then prefer to early return pool with empty state to fallback to rpc call
@@ -325,19 +335,27 @@ export class UniswapV3
         },
       });
     } catch (e) {
-      if (e instanceof Error && e.message.endsWith('Pool does not exist')) {
+      if (
+        e instanceof Error &&
+        (e.message.endsWith('Pool does not exist') ||
+          e.message.endsWith('Pool is inactive'))
+      ) {
+        if (e.message.endsWith('Pool is inactive')) {
+          this.logger.info(
+            `${this.dexKey}: Adding inactive pool ${pool.poolAddress} to "notExistingPoolSet": srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee}`,
+          );
+        }
         // no need to await we want the set to have the pool key but it's not blocking
-        this.dexHelper.cache.zadd(
+        void this.dexHelper.cache.zadd(
           this.notExistingPoolSetKey,
           [Date.now(), key],
           'NX',
         );
 
-        // Pool does not exist for this feeCode, so we can set it to null
-        // to prevent more requests for this pool
+        // prevent more requests for this pool
         pool = null;
         this.logger.trace(
-          `${this.dexHelper}: Pool: srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee} not found`,
+          `${this.dexHelper}: ${e.message}: srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee}`,
           e,
         );
       } else {

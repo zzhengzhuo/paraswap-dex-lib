@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+import _ from 'lodash';
 
 /* eslint-disable no-console */
 import { Provider, StaticJsonRpcProvider } from '@ethersproject/providers';
@@ -34,7 +35,7 @@ import {
   constructSimpleSDK,
   SimpleFetchSDK,
 } from '@paraswap/sdk';
-import { ParaSwapVersion } from '@paraswap/core';
+import { OptimalRoute, ParaSwapVersion } from '@paraswap/core';
 import axios from 'axios';
 import { Holders, Tokens } from './constants-e2e';
 import { sleep } from './utils';
@@ -289,6 +290,97 @@ export async function testE2E(
   expect(simulation.status).toEqual(true);
 }
 
+const extractAllDexsFromRoute = (bestRoute: OptimalRoute[]) => {
+  return _.flattenDeep(
+    bestRoute.map(r =>
+      r.swaps.map(s => s.swapExchanges.map(se => se.exchange)),
+    ),
+  );
+};
+
+export async function testPriceRoute(priceRoute: OptimalRate) {
+  const slippage = 100n;
+  const { network, srcToken, destToken, side } = priceRoute;
+  const dexKeys = extractAllDexsFromRoute(priceRoute.bestRoute);
+  console.log('Dexes: ', dexKeys.join(', '));
+  const sdk: IParaSwapSDK = new APIParaswapSDK(network, dexKeys, '');
+  if (sdk instanceof APIParaswapSDK) {
+    // initialize as some of the dexs need states to build transaction (e.g. balancer-v2)
+    await sdk?.initializePricing();
+  }
+  // log the route for visibility
+  console.log('Price Route:', JSON.stringify(priceRoute, null, 2));
+  // prepare state overrides
+  const tenderlySimulator = TenderlySimulator.getInstance();
+  // any address works
+  const userAddress = TenderlySimulator.DEFAULT_OWNER;
+  // init `StateOverride` object
+  const stateOverride: StateOverride = {};
+  // fund x2 just in case
+  const amountToFund = BigInt(priceRoute.srcAmount) * 2n;
+  // add overrides for src token
+  if (srcToken.toLowerCase() === ETHER_ADDRESS) {
+    // add eth balance to user
+    tenderlySimulator.addBalanceOverride(
+      stateOverride,
+      userAddress,
+      amountToFund,
+    );
+  } else {
+    // add token balance and allowance to Augustus
+    await tenderlySimulator.addTokenBalanceOverride(
+      stateOverride,
+      network,
+      srcToken,
+      userAddress,
+      amountToFund,
+    );
+    await tenderlySimulator.addAllowanceOverride(
+      stateOverride,
+      network,
+      srcToken,
+      userAddress,
+      priceRoute.contractAddress,
+      amountToFund,
+    );
+  }
+  // build swap transaction
+  const minMaxAmount =
+    (side === SwapSide.SELL
+      ? BigInt(priceRoute.destAmount) * (10000n - slippage)
+      : BigInt(priceRoute.srcAmount) * (10000n + slippage)) / 10000n;
+  const swapParams = await sdk.buildTransaction(
+    priceRoute,
+    minMaxAmount,
+    userAddress,
+  );
+  assert(
+    swapParams.to !== undefined,
+    'Transaction params missing `to` property',
+  );
+  // assemble `SimulationRequest`
+  const { from, to, data, value } = swapParams;
+  const simulationRequest = {
+    chainId: network,
+    from,
+    to,
+    data,
+    value,
+    blockNumber: priceRoute.blockNumber,
+    stateOverride,
+  };
+  // simulate the transaction with overrides
+  const simulation = await tenderlySimulator.simulateTransaction(
+    simulationRequest,
+  );
+  // release
+  if (sdk.releaseResources) {
+    await sdk.releaseResources();
+  }
+  // assert simulation status
+  expect(simulation.status).toEqual(true);
+}
+
 export type TestParamE2E = {
   config: Config;
   srcToken: Token;
@@ -442,81 +534,6 @@ export const getEnv = (envName: string, optional: boolean = false): string => {
   }
 
   return process.env[envName]!;
-};
-
-type Pairs = { name: string; sellAmount: string; buyAmount: string }[][];
-type DexToPair = Record<string, Pairs>;
-
-export const constructE2ETests = (
-  testSuiteName: string,
-  network: Network,
-  testDataset: DexToPair,
-) => {
-  const sideToContractMethods = new Map([
-    [
-      SwapSide.SELL,
-      [
-        ContractMethod.simpleSwap,
-        ContractMethod.multiSwap,
-        ContractMethod.megaSwap,
-      ],
-    ],
-    [SwapSide.BUY, [ContractMethod.simpleBuy, ContractMethod.buy]],
-  ]);
-
-  describe(testSuiteName, () => {
-    const tokens = Tokens[network];
-    const holders = Holders[network];
-    const provider = new StaticJsonRpcProvider(
-      generateConfig(network).privateHttpProvider,
-      network,
-    );
-
-    Object.entries(testDataset).forEach(([dexKey, pairs]) => {
-      describe(dexKey, () => {
-        sideToContractMethods.forEach((contractMethods, side) =>
-          describe(`${side}`, () => {
-            contractMethods.forEach((contractMethod: ContractMethod) => {
-              pairs.forEach(pair => {
-                describe(`${contractMethod}`, () => {
-                  it(`${pair[0].name} -> ${pair[1].name}`, async () => {
-                    await testE2E(
-                      tokens[pair[0].name],
-                      tokens[pair[1].name],
-                      holders[pair[0].name],
-                      side === SwapSide.SELL
-                        ? pair[0].sellAmount
-                        : pair[0].buyAmount,
-                      side,
-                      dexKey,
-                      contractMethod,
-                      network,
-                      provider,
-                    );
-                  });
-                  it(`${pair[1].name} -> ${pair[0].name}`, async () => {
-                    await testE2E(
-                      tokens[pair[1].name],
-                      tokens[pair[0].name],
-                      holders[pair[1].name],
-                      side === SwapSide.SELL
-                        ? pair[1].sellAmount
-                        : pair[1].buyAmount,
-                      side,
-                      dexKey,
-                      contractMethod,
-                      network,
-                      provider,
-                    );
-                  });
-                });
-              });
-            });
-          }),
-        );
-      });
-    });
-  });
 };
 
 export const testGasEstimation = async (

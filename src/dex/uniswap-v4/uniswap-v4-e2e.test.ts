@@ -80,9 +80,7 @@ describe('UniswapV4 E2E', () => {
       const tokenASymbol: string = 'ETH';
       const tokenBSymbol: string = 'USDC';
 
-      // const tokenAAmount: string = '1000000000000000000';
-      const tokenAAmount: string = '1000000000000000000';
-      // const tokenBAmount: string = '100000000';
+      const tokenAAmount: string = '100000000000000';
       const tokenBAmount: string = '5000000';
 
       testForNetwork(
@@ -95,7 +93,7 @@ describe('UniswapV4 E2E', () => {
       );
     });
 
-    describe.skip('WETH -> USDC', () => {
+    describe('WETH -> USDC', () => {
       const tokenASymbol: string = 'WETH';
       const tokenBSymbol: string = 'USDC';
 
@@ -312,6 +310,61 @@ describe('UniswapV4 E2E', () => {
 
       const tokenAAmount: string = '100000000000000';
       const tokenBAmount: string = '10000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+  });
+
+  describe('Unichain', () => {
+    const network = Network.UNICHAIN;
+
+    describe('ETH -> USDC', () => {
+      const tokenASymbol: string = 'ETH';
+      const tokenBSymbol: string = 'USDC';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '100000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+
+    describe('WETH -> USDC', () => {
+      const tokenASymbol: string = 'WETH';
+      const tokenBSymbol: string = 'USDC';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '10000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+
+    describe('USDC -> DAI', () => {
+      const tokenASymbol: string = 'USDC';
+      const tokenBSymbol: string = 'DAI';
+
+      const tokenAAmount: string = '10000000';
+      const tokenBAmount: string = '1000000000000000000';
 
       testForNetwork(
         network,
