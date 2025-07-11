@@ -10,6 +10,9 @@ import { decodeStateMultiCallResultWithRelativeBitmaps as decodeStateMultiCallRe
 import { RamsesV2EventPool } from './forks/ramses-v2/ramses-v2-pool';
 import { VelodromeSlipstreamEventPool } from './forks/velodrome-slipstream/velodrome-slipstream-pool';
 import { VelodromeSlipstreamFactory } from './forks/velodrome-slipstream/velodrome-slipstream-factory';
+import PangolinV3StateMulticallABI from '../../abi/pangolin-v3/PangolinV3StateMulticall.abi.json';
+import { decodeStateMultiCallResultWithRelativeBitmaps as decodeStateMultiCallResultWithRelativeBitmapsForPangolin } from './forks/pangolin-v3/utils';
+import { PangolinV3EventPool } from './forks/pangolin-v3/pangolin-v3-pool';
 
 const SUPPORTED_FEES = [10000n, 3000n, 500n, 100n];
 const RAMSES_FORKS_FEES = [...SUPPORTED_FEES, 50n, 250n];
@@ -422,8 +425,12 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
       quoter: '0xA86522CCc412dBC4FA10991900FE46De95983822',
       router: '0x5485A0751a249225D3bA2f6f296551507e22547f',
       supportedFees: PANGOLIN_SUPPORTED_FEES,
-      stateMulticall: '0x30F6B9b6485ff0B67E881f5ac80D3F1c70A4B23d',
-      uniswapMulticall: '0x0139141Cd4Ee88dF3Cdb65881D411bAE271Ef0C2',
+      stateMulticall: '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc',
+      stateMultiCallAbi: PangolinV3StateMulticallABI as AbiItem[],
+      eventPoolImplementation: PangolinV3EventPool,
+      decodeStateMultiCallResultWithRelativeBitmaps:
+        decodeStateMultiCallResultWithRelativeBitmapsForPangolin,
+      uniswapMulticall: '0x7d115C1fb6152C5Aed1750183Ae59107160694a2',
       chunksCount: 10,
       initRetryFrequency: 10,
       initHash:
