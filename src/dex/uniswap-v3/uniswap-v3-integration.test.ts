@@ -2733,7 +2733,7 @@ describe('Slipstream', () => {
   });
 });
 
-describe.only('PangolinV3', () => {
+describe('PangolinV3', () => {
   const dexKey = 'PangolinV3';
   let blockNumber: number;
   let uniswapV3: UniswapV3;
