@@ -321,7 +321,7 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
   SpookySwapV3: {
     [Network.SONIC]: {
       factory: '0x3D91B700252e0E3eE7805d12e048a988Ab69C8ad',
-      quoter: '0x593856bbfd6Aaf0b714277c0BF06307900d1Aa68',
+      quoter: '0x3F2026Cae76b987C4002e62B9dF70988b4388234',
       router: '0x0C2BC01d435CfEb2DC6Ad7cEC0E473e2DBaBdd87',
       routerType: UniswapV3Router.SwapRouter02,
       supportedFees: SUPPORTED_FEES,
@@ -476,7 +476,7 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
       quoter: '0xA86522CCc412dBC4FA10991900FE46De95983822',
       router: '0x5485A0751a249225D3bA2f6f296551507e22547f',
       supportedFees: PANGOLIN_SUPPORTED_FEES,
-      stateMulticall: '0xd9aF38beD4dC67CD8aA6b40be0FeeE6E122Eb8Bc',
+      stateMulticall: '0x30F6B9b6485ff0B67E881f5ac80D3F1c70A4B23d',
       stateMultiCallAbi: PangolinV3StateMulticallABI as AbiItem[],
       eventPoolImplementation: PangolinV3EventPool,
       decodeStateMultiCallResultWithRelativeBitmaps:

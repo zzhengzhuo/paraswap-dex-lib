@@ -28,8 +28,7 @@ export function decodeStateMultiCallResultWithRelativeBitmaps(
           uint16 observationCardinality,
           uint16 observationCardinalityNext,
           uint8 feeProtocol,
-          bool unlocked,
-          uint24 fee
+          bool unlocked
         ) slot0,
         uint128 liquidity,
         int24 tickSpacing,
