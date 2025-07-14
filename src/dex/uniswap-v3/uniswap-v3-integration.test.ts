@@ -2151,7 +2151,7 @@ describe('SpookySwapV3', () => {
   const dexKey = 'SpookySwapV3';
 
   describe('Fantom', () => {
-    const network = Network.FANTOM;
+    const network = Network.SONIC;
     const dexHelper = new DummyDexHelper(network);
 
     let blockNumber: number;
