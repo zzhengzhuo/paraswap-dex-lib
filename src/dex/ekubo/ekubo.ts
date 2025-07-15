@@ -196,30 +196,30 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     poolKeys = this.poolKeys.filter(
       poolKey => poolKey.token0 === token0 && poolKey.token1 === token1,
     );
-    if (poolKeys.length === 0) {
-      poolKeys = FALLBACK_POOL_PARAMETERS.map(
-        params =>
-          new PoolKey(
-            token0,
-            token1,
-            new PoolConfig(params.tickSpacing, params.fee, 0n),
-          ),
-      );
+    // if (poolKeys.length === 0) {
+    //   poolKeys = FALLBACK_POOL_PARAMETERS.map(
+    //     params =>
+    //       new PoolKey(
+    //         token0,
+    //         token1,
+    //         new PoolConfig(params.tickSpacing, params.fee, 0n),
+    //       ),
+    //   );
 
-      if ([token0, token1].includes(NATIVE_TOKEN_ADDRESS)) {
-        poolKeys.push(
-          new PoolKey(
-            token0,
-            token1,
-            new PoolConfig(
-              FULL_RANGE_TICK_SPACING,
-              0n,
-              BigInt(this.config.oracle),
-            ),
-          ),
-        );
-      }
-    }
+    //   if ([token0, token1].includes(NATIVE_TOKEN_ADDRESS)) {
+    //     poolKeys.push(
+    //       new PoolKey(
+    //         token0,
+    //         token1,
+    //         new PoolConfig(
+    //           FULL_RANGE_TICK_SPACING,
+    //           0n,
+    //           BigInt(this.config.oracle),
+    //         ),
+    //       ),
+    //     );
+    //   }
+    // }
 
     const ids = [];
 
