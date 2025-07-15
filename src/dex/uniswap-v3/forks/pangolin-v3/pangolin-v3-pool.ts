@@ -92,6 +92,8 @@ export class PangolinV3EventPool extends UniswapV3EventPool {
       bigint,
     ];
 
+    this._assertActivePool(_state);
+
     const tickBitmap = {};
     const ticks = {};
 
