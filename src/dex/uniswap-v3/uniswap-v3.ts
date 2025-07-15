@@ -119,6 +119,7 @@ export class UniswapV3
         'PharaohV2',
         'AlienBaseV3',
         'OkuTradeV3',
+        'PangolinV3',
         'Wagmi',
       ]),
     );
