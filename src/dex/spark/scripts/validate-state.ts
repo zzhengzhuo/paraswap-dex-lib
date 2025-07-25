@@ -19,7 +19,7 @@ const dexKey = 'Spark';
 const { potAddress } = SDaiConfig[dexKey][network];
 const blockHeaders: Record<number, BlockHeader> = {};
 
-const dexHelper = new DummyDexHelper(network);
+const dexHelper = new DummyDexHelper(network, 19199247);
 const logger = dexHelper.getLogger(dexKey);
 
 function preprocessField(value: any): string {
@@ -91,7 +91,7 @@ async function checkPoolStateForBlockRange(
 ): Promise<boolean> {
   const network = Network.MAINNET;
   const dexKey = 'Spark';
-  const dexHelper = new DummyDexHelper(network);
+  const dexHelper = new DummyDexHelper(network, startBlockNumber);
 
   const spark = new Spark(network, dexKey, dexHelper);
   const pool = await spark.eventPool;

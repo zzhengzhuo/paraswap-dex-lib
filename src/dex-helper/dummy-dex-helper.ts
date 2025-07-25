@@ -5,14 +5,14 @@ import {
   EventSubscriber,
   IRequestWrapper,
 } from './index';
-import axios, { AxiosResponse } from 'axios';
-import { Address, LoggerConstructor, Token } from '../types';
-// import { Contract } from '@ethersproject/contracts';
-import { StaticJsonRpcProvider, Provider } from '@ethersproject/providers';
+import axios from 'axios';
+import { Address, Log, LoggerConstructor, Token } from '../types';
 import multiABIV2 from '../abi/multi-v2.json';
 import log4js from 'log4js';
 import { getLogger } from '../lib/log4js';
+import { Provider, StaticJsonRpcProvider } from '@ethersproject/providers';
 import Web3 from 'web3';
+import { WebsocketProvider } from 'web3-core';
 import { Contract } from 'web3-eth-contract';
 import { generateConfig, ConfigHelper } from '../config';
 import { MultiWrapper } from '../lib/multi-wrapper';
@@ -20,7 +20,8 @@ import { Response, RequestConfig } from './irequest-wrapper';
 import { BlockHeader } from 'web3-eth';
 import { PromiseScheduler } from '../lib/promise-scheduler';
 import { AugustusApprovals } from '../dex/augustus-approvals';
-import { SUBGRAPH_TIMEOUT } from '../constants';
+import { Network, SUBGRAPH_TIMEOUT } from '../constants';
+import { CallBack } from './idex-helper';
 
 const logger = getLogger('DummyDexHelper');
 
@@ -285,8 +286,164 @@ export class DummyRequestWrapper implements IRequestWrapper {
   }
 }
 
+type SubscriberInfo = {
+  subscriber: EventSubscriber;
+  contractAddress: Address | Address[];
+  afterBlockNumber: number;
+};
+
+type LogInfo = {
+  blockHeader: Readonly<BlockHeader>;
+  logs: Readonly<Log>[];
+};
+
+export type BlockCallback = (blockTimestamp: bigint) => void;
+
 class DummyBlockManager implements IBlockManager {
-  constructor(public _blockNumber: number = 20569333) {}
+  logs: Map<number, LogInfo> = new Map();
+  private provider: Web3;
+  private subscribers: SubscriberInfo[] = [];
+  private blockNumber: number;
+
+  constructor(
+    public readonly url: string,
+    readonly callBack: BlockCallback,
+    blockNumber?: number,
+  ) {
+    this.provider = new Web3(
+      new WebsocketProvider(url, {
+        clientConfig: {
+          maxReceivedFrameSize: 10000000000,
+          maxReceivedMessageSize: 10000000000,
+        },
+        // Enable auto reconnection
+        reconnect: {
+          auto: true,
+          delay: 1000, // ms
+          maxAttempts: 10,
+          onTimeout: false,
+        },
+      }),
+    );
+    this.blockNumber = blockNumber ?? 0;
+  }
+
+  async init() {
+    if (this.blockNumber === 0) {
+      this.blockNumber = await this.provider.eth.getBlockNumber();
+    }
+
+    const [logs, blockHeader] = await Promise.all([
+      this.provider.eth.getPastLogs({
+        fromBlock: this.blockNumber,
+        toBlock: this.blockNumber,
+      }),
+      this.provider.eth.getBlock(this.blockNumber, false),
+    ]);
+    this.logs.set(this.blockNumber, {
+      blockHeader,
+      logs,
+    });
+    this.createBlockSubscriber();
+  }
+
+  createBlockSubscriber() {
+    let isConnected = false;
+
+    const connect = () => {
+      this.provider = new Web3(
+        new WebsocketProvider(this.url, {
+          clientConfig: {
+            maxReceivedFrameSize: 10000000000,
+            maxReceivedMessageSize: 10000000000,
+          },
+          // Enable auto reconnection
+          reconnect: {
+            auto: true,
+            delay: 1000, // ms
+            maxAttempts: 10,
+            onTimeout: false,
+          },
+        }),
+      );
+
+      this.provider.eth.subscribe(
+        'newBlockHeaders',
+        async (err, blockHeader) => {
+          if (err) {
+            logger.error('Error subscribing to new block headers:', err);
+            reconnect();
+            return;
+          }
+
+          if (blockHeader.number > this.blockNumber + 6) {
+            const latestBlockNumber = blockHeader.number - 6;
+
+            const chunk = 25;
+            while (this.blockNumber < latestBlockNumber) {
+              const toBlock = Math.min(
+                latestBlockNumber,
+                this.blockNumber + chunk,
+              );
+              const [logs, newBlockHeaders] = await Promise.all([
+                this.provider.eth.getPastLogs({
+                  fromBlock: this.blockNumber + 1,
+                  toBlock,
+                }),
+                Promise.all(
+                  new Array(toBlock - this.blockNumber)
+                    .fill(0)
+                    .map((_, i) =>
+                      this.provider.eth.getBlock(
+                        this.blockNumber + i + 1,
+                        false,
+                      ),
+                    ),
+                ),
+              ]);
+              for (let i = this.blockNumber + 1; i <= latestBlockNumber; i++) {
+                this.logs.set(i, {
+                  blockHeader: newBlockHeaders[i - this.blockNumber],
+                  logs: logs.filter(log => log.blockNumber === i),
+                });
+              }
+              this.subscribers.forEach(subscriber => {
+                const logs: Log[] = [];
+                const blockHeaders: BlockHeader[] = [];
+                this.logs.forEach((logInfo, blockNumber) => {
+                  if (blockNumber > subscriber.afterBlockNumber) {
+                    logs.push(...logInfo.logs);
+                    blockHeaders.push(logInfo.blockHeader);
+                  }
+                });
+                subscriber.subscriber.update(logs, blockHeaders);
+                subscriber.afterBlockNumber = latestBlockNumber;
+              });
+              this.blockNumber = latestBlockNumber;
+            }
+
+            this.logs.forEach((_, blockNumber) => {
+              if (blockNumber < this.blockNumber - 10) {
+                this.logs.delete(blockNumber);
+              }
+            });
+          }
+
+          this.callBack(BigInt(blockHeader.timestamp));
+        },
+      );
+    };
+
+    const reconnect = () => {
+      if (!isConnected) {
+        setTimeout(() => {
+          connect();
+        }, 3000);
+      }
+    };
+
+    connect();
+  }
 
   subscribeToLogs(
     subscriber: EventSubscriber,
@@ -300,14 +457,11 @@ class DummyBlockManager implements IBlockManager {
   }
 
   getLatestBlockNumber(): number {
-    return this._blockNumber;
+    return this.blockNumber;
   }
 
   getActiveChainHead(): Readonly<BlockHeader> {
-    return {
-      number: this._blockNumber,
-      hash: '0x42',
-    } as BlockHeader;
+    return this.logs.get(this.blockNumber)!.blockHeader;
   }
 }
 
@@ -328,8 +482,22 @@ export class DummyDexHelper implements IDexHelper {
     tokenAmounts: [toke: string, amount: bigint | null][],
   ) => Promise<number[]>;
 
-  constructor(network: number, rpcUrl?: string) {
-    this.config = new ConfigHelper(false, generateConfig(network), 'is');
+  constructor(
+    network: number,
+    blockNumber?: number,
+    rpcUrl?: string,
+    readonly callBack: CallBack = () => {},
+    readonly blockCallback: BlockCallback = () => {},
+    readonly preloadPools: Map<
+      string,
+      Map<Network, { token0: Address; token1: Address; fee: bigint }[]>
+    > = new Map(),
+  ) {
+    this.config = new ConfigHelper(
+      false,
+      generateConfig(network, rpcUrl),
+      'is',
+    );
     this.cache = new DummyCache();
     this.httpRequest = new DummyRequestWrapper(this.config.data.apiKeyTheGraph);
     this.provider = new StaticJsonRpcProvider(
@@ -344,7 +512,11 @@ export class DummyDexHelper implements IDexHelper {
       multiABIV2 as any,
       this.config.data.multicallV2Address,
     );
-    this.blockManager = new DummyBlockManager();
+    this.blockManager = new DummyBlockManager(
+      rpcUrl ? rpcUrl : this.config.data.privateHttpProvider,
+      this.blockCallback,
+      blockNumber,
+    );
     this.getLogger = name => {
       const logger = log4js.getLogger(name);
       logger.level = 'debug';

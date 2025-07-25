@@ -25,6 +25,10 @@ import { GenericSwapTransactionBuilder } from '../generic-swap-transaction-build
 import { AddressOrSymbol } from '@paraswap/sdk';
 import { ParaSwapVersion } from '@paraswap/core';
 import { TransactionBuilder } from '../transaction-builder';
+import { UniswapV3EventPool } from '../dex/uniswap-v3/uniswap-v3-pool';
+import { UniswapV3 } from '../dex/uniswap-v3/uniswap-v3';
+import { CallBack } from '../dex-helper/idex-helper';
+import { BlockCallback } from '../dex-helper/dummy-dex-helper';
 
 export interface IParaSwapSDK {
   getPrices(
@@ -67,9 +71,18 @@ export class LocalParaswapSDK implements IParaSwapSDK {
     protected network: number,
     dexKeys: string | string[],
     rpcUrl: string,
+    blockNumber: number,
+    callBack: CallBack,
+    blockCallback: BlockCallback,
     limitOrderProvider?: DummyLimitOrderProvider,
   ) {
-    this.dexHelper = new DummyDexHelper(this.network, rpcUrl);
+    this.dexHelper = new DummyDexHelper(
+      this.network,
+      blockNumber,
+      rpcUrl,
+      callBack,
+      blockCallback,
+    );
     this.dexAdapterService = new DexAdapterService(
       this.dexHelper,
       this.network,
@@ -98,8 +111,18 @@ export class LocalParaswapSDK implements IParaSwapSDK {
     });
   }
 
+  async getDexPool(
+    dexKey: string,
+    address: Address,
+  ): Promise<UniswapV3EventPool | null> {
+    const dex = this.dexAdapterService.getDexByKey(dexKey) as UniswapV3;
+    const blockNumber = this.dexHelper.blockManager.getLatestBlockNumber();
+    const pool = await dex.getPoolByAddress(address, blockNumber);
+    return pool;
+  }
+
   async initializePricing() {
-    const blockNumber = await this.dexHelper.web3Provider.eth.getBlockNumber();
+    const blockNumber = this.dexHelper.blockManager.getLatestBlockNumber();
     await this.pricingHelper.initialize(blockNumber, this.dexKeys);
   }
 

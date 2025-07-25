@@ -8,7 +8,7 @@ import {
   InitializeStateOptions,
   StatefulEventSubscriber,
 } from '../../stateful-event-subscriber';
-import { IDexHelper } from '../../dex-helper/idex-helper';
+import { CallBack, IDexHelper } from '../../dex-helper/idex-helper';
 import {
   PoolState,
   DecodedStateMultiCallResultWithRelativeBitmaps,
@@ -403,6 +403,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
         newTick,
         newLiquidity,
         zeroForOne,
+        this.dexHelper.callBack,
       );
 
       if (zeroForOne) {

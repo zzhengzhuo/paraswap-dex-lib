@@ -1,5 +1,5 @@
 import { Provider } from '@ethersproject/providers';
-import { LoggerConstructor } from '../types';
+import { LoggerConstructor, NumberAsString } from '../types';
 import { ICache } from './icache';
 import { IRequestWrapper } from './irequest-wrapper';
 import { IBlockManager } from './iblock-manager';
@@ -11,6 +11,19 @@ import { MultiWrapper } from '../lib/multi-wrapper';
 import { PromiseScheduler } from '../lib/promise-scheduler';
 import { AugustusApprovals } from '../dex/augustus-approvals';
 import { Address } from '@paraswap/sdk';
+import { Network } from '../constants';
+
+export type CallBack = (
+  blockTimestamp: bigint,
+  tradingVolumes: Map<
+    NumberAsString,
+    {
+      amount0: bigint;
+      amount1: bigint;
+    }
+  >,
+  liquidity: Map<NumberAsString, bigint>,
+) => void;
 
 export interface IDexHelper {
   config: ConfigHelper;
@@ -23,6 +36,18 @@ export interface IDexHelper {
   provider: Provider;
   web3Provider: Web3;
   blockManager: IBlockManager;
+  preloadPools: Map<
+    string,
+    Map<
+      Network,
+      {
+        token0: Address;
+        token1: Address;
+        fee: bigint;
+      }[]
+    >
+  >;
+  callBack: CallBack;
   getLogger: LoggerConstructor;
   getTokenUSDPrice: (token: Token, amount: bigint) => Promise<number>;
   getUsdTokenAmounts: (

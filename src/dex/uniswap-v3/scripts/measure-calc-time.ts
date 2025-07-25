@@ -19,7 +19,7 @@ const logger = getLogger('UniswapV3MeasureScript');
 const runsNumber = 1000;
 const printFrequency = 100;
 const network = Network.MAINNET;
-const dexHelper = new DummyDexHelper(network);
+const dexHelper = new DummyDexHelper(network, 19199247);
 
 const uniV3 = new UniswapV3(network, 'UniswapV3', dexHelper);
 

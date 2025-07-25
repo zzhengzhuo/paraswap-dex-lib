@@ -14,6 +14,7 @@ import {
   MAX_PRICING_COMPUTATION_STEPS_ALLOWED,
   OUT_OF_RANGE_ERROR_POSTFIX,
 } from '../constants';
+import { CallBack } from '../../../dex-helper/idex-helper';
 
 type ModifyPositionParams = {
   tickLower: bigint;
@@ -390,6 +391,7 @@ class UniswapV3Math {
     newTick: bigint,
     newLiquidity: bigint,
     zeroForOne: boolean,
+    callBack: CallBack,
   ): void {
     const slot0Start = poolState.slot0;
 
@@ -421,6 +423,14 @@ class UniswapV3Math {
     // When they become equivalent, we proceed with state updating part as normal
     // And if assumptions regarding this cycle are correct, we don't need to process
     // the last cycle when state.tick === newTick
+    let tradingVolumes: Map<
+      NumberAsString,
+      {
+        amount0: bigint;
+        amount1: bigint;
+      }
+    > = new Map();
+
     while (state.tick !== newTick && state.sqrtPriceX96 !== newSqrtPriceX96) {
       const step = {
         sqrtPriceStartX96: 0n,
@@ -464,6 +474,20 @@ class UniswapV3Math {
         state.amountSpecifiedRemaining,
         poolState.fee,
       );
+
+      if (zeroForOne) {
+        const oldVolume = tradingVolumes.get(state.tick.toString());
+        tradingVolumes.set(state.tick.toString(), {
+          amount0: (oldVolume?.amount0 ?? 0n) + swapStepResult.amountIn,
+          amount1: (oldVolume?.amount1 ?? 0n) + swapStepResult.amountOut,
+        });
+      } else {
+        const oldVolume = tradingVolumes.get(state.tick.toString());
+        tradingVolumes.set(state.tick.toString(), {
+          amount0: (oldVolume?.amount0 ?? 0n) + swapStepResult.amountOut,
+          amount1: (oldVolume?.amount1 ?? 0n) + swapStepResult.amountIn,
+        });
+      }
 
       state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
 
@@ -528,6 +552,13 @@ class UniswapV3Math {
 
     if (poolState.liquidity !== newLiquidity)
       poolState.liquidity = newLiquidity;
+
+    const liquidities = new Map<NumberAsString, bigint>();
+    for (const tick of Object.keys(poolState.ticks)) {
+      liquidities.set(tick, poolState.ticks[tick].liquidityGross);
+    }
+
+    callBack(poolState.blockTimestamp, tradingVolumes, liquidities);
   }
 
   _modifyPosition(
