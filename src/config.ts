@@ -517,13 +517,14 @@ const baseConfigs: { [network: number]: BaseConfig } = {
 };
 
 // Should not be used, except by internal test code
-export function generateConfig(network: number): Config {
+export function generateConfig(network: number, rpcUrl?: string): Config {
   const baseConfig = baseConfigs[network];
   if (!baseConfig) {
     throw new Error(`No configuration found for network ${network}`);
   }
   const nativeTokenName =
     baseConfig.nativeTokenName || baseConfig.nativeTokenSymbol;
+  baseConfig.privateHttpProvider = rpcUrl || baseConfig.privateHttpProvider;
   if (!baseConfig.privateHttpProvider) {
     throw new Error(`Missing HTTP Provider for network ${network}`);
   }

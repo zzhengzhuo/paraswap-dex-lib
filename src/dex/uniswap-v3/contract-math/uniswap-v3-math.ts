@@ -14,6 +14,7 @@ import {
   MAX_PRICING_COMPUTATION_STEPS_ALLOWED,
   OUT_OF_RANGE_ERROR_POSTFIX,
 } from '../constants';
+import { CallBack } from '../../../dex-helper/idex-helper';
 
 type ModifyPositionParams = {
   tickLower: bigint;
@@ -390,6 +391,10 @@ class UniswapV3Math {
     newTick: bigint,
     newLiquidity: bigint,
     zeroForOne: boolean,
+    txHash: string,
+    amountIn: bigint,
+    amountOut: bigint,
+    callBack: CallBack,
   ): void {
     const slot0Start = poolState.slot0;
 
@@ -421,6 +426,14 @@ class UniswapV3Math {
     // When they become equivalent, we proceed with state updating part as normal
     // And if assumptions regarding this cycle are correct, we don't need to process
     // the last cycle when state.tick === newTick
+    let tradingVolumes: Map<
+      NumberAsString,
+      {
+        amount0: bigint;
+        amount1: bigint;
+      }
+    > = new Map();
+
     while (state.tick !== newTick && state.sqrtPriceX96 !== newSqrtPriceX96) {
       const step = {
         sqrtPriceStartX96: 0n,
@@ -503,6 +516,36 @@ class UniswapV3Math {
       } else if (state.sqrtPriceX96 != step.sqrtPriceStartX96) {
         state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
       }
+
+      if (zeroForOne) {
+        const oldVolume = tradingVolumes.get(step.tickNext.toString());
+        tradingVolumes.set(step.tickNext.toString(), {
+          amount0:
+            (oldVolume?.amount0 ?? 0n) +
+            (swapStepResult.amountIn > 0n
+              ? swapStepResult.amountIn
+              : -swapStepResult.amountIn),
+          amount1:
+            (oldVolume?.amount1 ?? 0n) +
+            (swapStepResult.amountOut > 0n
+              ? swapStepResult.amountOut
+              : -swapStepResult.amountOut),
+        });
+      } else {
+        const oldVolume = tradingVolumes.get(step.tickNext.toString());
+        tradingVolumes.set(step.tickNext.toString(), {
+          amount0:
+            (oldVolume?.amount0 ?? 0n) +
+            (swapStepResult.amountOut > 0n
+              ? swapStepResult.amountOut
+              : -swapStepResult.amountOut),
+          amount1:
+            (oldVolume?.amount1 ?? 0n) +
+            (swapStepResult.amountIn > 0n
+              ? swapStepResult.amountIn
+              : -swapStepResult.amountIn),
+        });
+      }
     }
 
     if (slot0Start.tick !== newTick) {
@@ -528,6 +571,222 @@ class UniswapV3Math {
 
     if (poolState.liquidity !== newLiquidity)
       poolState.liquidity = newLiquidity;
+
+    const liquidities = new Map<
+      NumberAsString,
+      { liquidityGross: bigint; liquidityNet: bigint }
+    >();
+    for (const tick of Object.keys(poolState.ticks)) {
+      liquidities.set(tick, {
+        liquidityGross: poolState.ticks[tick].liquidityGross,
+        liquidityNet: poolState.ticks[tick].liquidityNet,
+      });
+    }
+
+    if (tradingVolumes.size === 0) {
+      const [tickNext] = TickBitMap.nextInitializedTickWithinOneWord(
+        poolState,
+        state.tick,
+        poolState.tickSpacing,
+        zeroForOne,
+        false,
+      );
+
+      if (zeroForOne) {
+        tradingVolumes.set(tickNext.toString(), {
+          amount0: amountIn > 0n ? amountIn : -amountIn,
+          amount1: amountOut > 0n ? amountOut : -amountOut,
+        });
+      } else {
+        tradingVolumes.set(tickNext.toString(), {
+          amount0: amountOut > 0n ? amountOut : -amountOut,
+          amount1: amountIn > 0n ? amountIn : -amountIn,
+        });
+      }
+    }
+
+    callBack(
+      poolState.blockTimestamp,
+      poolState.pool,
+      txHash,
+      tradingVolumes,
+      poolState.balance0,
+      poolState.balance1,
+      poolState.slot0.tick,
+      poolState.slot0.sqrtPriceX96,
+      poolState.liquidity,
+      poolState.tickSpacing,
+      poolState.startTickBitmap,
+      poolState.tickBitmap,
+      poolState.networkId,
+      liquidities,
+    );
+  }
+
+  public getHolderAmounts(
+    currentTick: bigint,
+    currentPrice: bigint,
+    startTickBitmap: bigint,
+    tickBitmap: Record<NumberAsString, bigint>,
+    networkId: number,
+    ticks: Map<
+      NumberAsString,
+      { liquidityGross: bigint; liquidityNet: bigint }
+    >,
+    tickSpacing: bigint,
+    liquidity: bigint,
+  ): Map<
+    NumberAsString,
+    { amount0: bigint; amount1: bigint; liquidity: bigint }
+  > {
+    let holderAmounts = new Map<
+      NumberAsString,
+      { amount0: bigint; amount1: bigint; liquidity: bigint }
+    >();
+    holderAmounts = this._getHolderAmounts(
+      holderAmounts,
+      currentTick,
+      currentPrice,
+      startTickBitmap,
+      tickBitmap,
+      networkId,
+      ticks,
+      tickSpacing,
+      liquidity,
+      true,
+    );
+    holderAmounts = this._getHolderAmounts(
+      holderAmounts,
+      currentTick,
+      currentPrice,
+      startTickBitmap,
+      tickBitmap,
+      networkId,
+      ticks,
+      tickSpacing,
+      liquidity,
+      false,
+    );
+    return holderAmounts;
+  }
+
+  private _getHolderAmounts(
+    holderAmounts: Map<
+      NumberAsString,
+      { amount0: bigint; amount1: bigint; liquidity: bigint }
+    >,
+    currentTick: bigint,
+    currentPrice: bigint,
+    startTickBitmap: bigint,
+    tickBitmap: Record<NumberAsString, bigint>,
+    networkId: number,
+    ticks: Map<NumberAsString, { liquidityNet: bigint }>,
+    tickSpacing: bigint,
+    liquidity: bigint,
+    zeroForOne: boolean,
+  ): Map<
+    NumberAsString,
+    { amount0: bigint; amount1: bigint; liquidity: bigint }
+  > {
+    const state = {
+      sqrtPriceX96: currentPrice,
+      tick: currentTick,
+      liquidity: liquidity,
+      initialized: true,
+      zeroForOne: zeroForOne,
+    };
+    while (state.initialized) {
+      const step = {
+        tickNext: 0n,
+        initialized: false,
+        sqrtPriceNextX96: 0n,
+      };
+
+      [step.tickNext, step.initialized] =
+        TickBitMap.nextInitializedTickWithinOneWord(
+          {
+            startTickBitmap: startTickBitmap,
+            tickBitmap: tickBitmap,
+            networkId: networkId,
+          },
+          state.tick,
+          tickSpacing,
+          state.zeroForOne,
+          false,
+        );
+
+      if (
+        step.tickNext < TickMath.MIN_TICK ||
+        step.tickNext > TickMath.MAX_TICK
+      ) {
+        break;
+      }
+
+      step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
+      const lowerTick = (state.tick / tickSpacing) * tickSpacing;
+      const holderAmountKey = (
+        step.tickNext < lowerTick ? step.tickNext : lowerTick
+      ).toString();
+      let amounts = holderAmounts.get(holderAmountKey) || {
+        amount0: 0n,
+        amount1: 0n,
+      };
+      if (state.sqrtPriceX96 < step.sqrtPriceNextX96) {
+        amounts.amount0 = SqrtPriceMath._getAmount0DeltaO(
+          state.sqrtPriceX96,
+          step.sqrtPriceNextX96,
+          state.liquidity,
+        );
+      } else {
+        amounts.amount1 = SqrtPriceMath._getAmount1DeltaO(
+          step.sqrtPriceNextX96,
+          state.sqrtPriceX96,
+          state.liquidity,
+        );
+      }
+
+      if (step.tickNext > lowerTick) {
+        const tickLen = (step.tickNext - lowerTick) / tickSpacing;
+        const amount0 = amounts.amount0 / tickLen;
+        const amount1 = amounts.amount1 / tickLen;
+        for (let tick = lowerTick; tick < step.tickNext; tick += tickSpacing) {
+          holderAmounts.set(tick.toString(), {
+            amount0,
+            amount1,
+            liquidity: state.liquidity,
+          });
+        }
+      } else {
+        const tickLen = (lowerTick - step.tickNext) / tickSpacing + 1n;
+        const amount0 = amounts.amount0 / tickLen;
+        const amount1 = amounts.amount1 / tickLen;
+        for (let tick = lowerTick; tick >= step.tickNext; tick -= tickSpacing) {
+          holderAmounts.set(tick.toString(), {
+            amount0,
+            amount1,
+            liquidity: state.liquidity,
+          });
+        }
+      }
+
+      if (step.initialized) {
+        let liquidityNet = ticks.get(step.tickNext.toString())?.liquidityNet;
+        if (liquidityNet === undefined) {
+          throw new Error('Tick not found');
+        }
+
+        if (state.zeroForOne) liquidityNet = -liquidityNet;
+
+        state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+      }
+
+      state.tick = state.zeroForOne ? step.tickNext - 1n : step.tickNext;
+
+      state.sqrtPriceX96 = step.sqrtPriceNextX96;
+      state.initialized = step.initialized;
+    }
+
+    return holderAmounts;
   }
 
   _modifyPosition(

@@ -14,7 +14,7 @@ import {
   TransferFeeParams,
   TxObject,
 } from '../types';
-import { ContractMethod, NULL_ADDRESS } from '../constants';
+import { ContractMethod, Network, NULL_ADDRESS } from '../constants';
 import { LimitOrderExchange } from '../dex/limit-order-exchange';
 import { v4 as uuid } from 'uuid';
 import {
@@ -23,8 +23,13 @@ import {
 } from '@paraswap/core/build/constants';
 import { GenericSwapTransactionBuilder } from '../generic-swap-transaction-builder';
 import { AddressOrSymbol } from '@paraswap/sdk';
-import { ParaSwapVersion } from '@paraswap/core';
+import { NumberAsString, ParaSwapVersion } from '@paraswap/core';
 import { TransactionBuilder } from '../transaction-builder';
+import { UniswapV3EventPool } from '../dex/uniswap-v3/uniswap-v3-pool';
+import { UniswapV3 } from '../dex/uniswap-v3/uniswap-v3';
+import { CallBack } from '../dex-helper/idex-helper';
+import { BlockCallback } from '../dex-helper/dummy-dex-helper';
+import { uniswapV3Math } from '../dex/uniswap-v3/contract-math/uniswap-v3-math';
 
 export interface IParaSwapSDK {
   getPrices(
@@ -56,7 +61,7 @@ export interface IParaSwapSDK {
 const chunks = 10;
 
 export class LocalParaswapSDK implements IParaSwapSDK {
-  dexHelper: IDexHelper;
+  dexHelper: DummyDexHelper;
   dexAdapterService: DexAdapterService;
   pricingHelper: PricingHelper;
   dexKeys: string[];
@@ -67,9 +72,23 @@ export class LocalParaswapSDK implements IParaSwapSDK {
     protected network: number,
     dexKeys: string | string[],
     rpcUrl: string,
+    blockNumber: number,
+    callBack: CallBack,
+    blockCallback: BlockCallback,
+    preloadPools: Map<
+      string,
+      { token0: Address; token1: Address; fee: bigint }[]
+    >,
     limitOrderProvider?: DummyLimitOrderProvider,
   ) {
-    this.dexHelper = new DummyDexHelper(this.network, rpcUrl);
+    this.dexHelper = new DummyDexHelper(
+      this.network,
+      blockNumber,
+      rpcUrl,
+      callBack,
+      blockCallback,
+      preloadPools,
+    );
     this.dexAdapterService = new DexAdapterService(
       this.dexHelper,
       this.network,
@@ -98,9 +117,54 @@ export class LocalParaswapSDK implements IParaSwapSDK {
     });
   }
 
+  getUniswapV3HolderAmounts(
+    currentTick: bigint,
+    currentPrice: bigint,
+    startTickBitmap: bigint,
+    tickBitmap: Record<NumberAsString, bigint>,
+    networkId: number,
+    ticks: Map<
+      NumberAsString,
+      { liquidityGross: bigint; liquidityNet: bigint }
+    >,
+    tickSpacing: bigint,
+    liquidity: bigint,
+  ): Map<
+    NumberAsString,
+    { amount0: bigint; amount1: bigint; liquidity: bigint }
+  > {
+    return uniswapV3Math.getHolderAmounts(
+      currentTick,
+      currentPrice,
+      startTickBitmap,
+      tickBitmap,
+      networkId,
+      ticks,
+      tickSpacing,
+      liquidity,
+    );
+  }
+
+  async getDexPool(
+    dexKey: string,
+    address: Address,
+  ): Promise<UniswapV3EventPool | null> {
+    const dex = this.dexAdapterService.getDexByKey(dexKey) as UniswapV3;
+    const blockNumber = this.dexHelper.blockManager.getLatestBlockNumber();
+    const pool = await dex.getPoolByAddress(address, blockNumber);
+    return pool;
+  }
+
+  async getDexPoolInfo(dexKey: string, address: Address) {
+    const dex = this.dexAdapterService.getDexByKey(dexKey) as UniswapV3;
+    return dex.getPoolInfo(address);
+  }
+
   async initializePricing() {
-    const blockNumber = await this.dexHelper.web3Provider.eth.getBlockNumber();
+    await this.dexHelper.init();
+    const blockNumber = this.dexHelper.blockManager.getLatestBlockNumber();
     await this.pricingHelper.initialize(blockNumber, this.dexKeys);
+    this.dexHelper.blockManager.updateBlock();
   }
 
   async releaseResources() {

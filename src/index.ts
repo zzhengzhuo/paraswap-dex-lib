@@ -33,6 +33,13 @@ export {
 
 export { IDex } from './dex/idex';
 
+export { UniswapV3 } from './dex/uniswap-v3/uniswap-v3';
+export { UniswapV3EventPool } from './dex/uniswap-v3/uniswap-v3-pool';
+
 export { ConfigHelper } from './config';
 
 export { SlippageCheckError } from './dex/generic-rfq/types';
+
+export { LocalParaswapSDK } from './implementations/local-paraswap-sdk';
+
+export { Network } from './constants';

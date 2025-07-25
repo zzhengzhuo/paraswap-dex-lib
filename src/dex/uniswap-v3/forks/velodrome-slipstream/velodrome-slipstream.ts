@@ -38,17 +38,8 @@ export class VelodromeSlipstream extends UniswapV3 {
     protected adapters = Adapters[network] || {},
     readonly quoterIface = new Interface(UniswapV3QuoterV2ABI),
     protected config = UniswapV3Config[dexKey][network],
-    protected poolsToPreload = [],
   ) {
-    super(
-      network,
-      dexKey,
-      dexHelper,
-      adapters,
-      quoterIface,
-      config,
-      poolsToPreload,
-    );
+    super(network, dexKey, dexHelper, adapters, quoterIface, config);
   }
 
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =

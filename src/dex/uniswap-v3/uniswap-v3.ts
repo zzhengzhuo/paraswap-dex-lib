@@ -40,6 +40,8 @@ import {
   UniswapV3Router,
   UniswapV3SimpleSwapParams,
 } from './types';
+import UniswapV3PoolABI from '../../abi/uniswap-v3/UniswapV3Pool.abi.json';
+import ERC20ABI from '../../abi/erc20.json';
 import {
   getLocalDeadlineAsFriendlyPlaceholder,
   SimpleExchange,
@@ -70,7 +72,7 @@ import { hexConcat, hexlify, hexZeroPad, hexValue } from 'ethers/lib/utils';
 import { extractReturnAmountPosition } from '../../executor/utils';
 import { getBalanceERC20 } from '../../lib/tokens/utils';
 import { MultiCallParams } from '../../lib/multi-wrapper';
-import { uint256ToBigInt } from '../../lib/decoders';
+import { addressDecode, uint256ToBigInt } from '../../lib/decoders';
 
 type PoolPairsInfo = {
   token0: Address;
@@ -94,6 +96,7 @@ export class UniswapV3
   readonly routerIface: Interface;
   readonly isFeeOnTransferSupported: boolean = false;
   readonly eventPools: Record<string, UniswapV3EventPool | null> = {};
+  readonly addressToIdentifier: Record<Address, string> = {};
 
   protected totalPoolsCount = 0;
   protected nonNullPoolsCount = 0;
@@ -138,7 +141,6 @@ export class UniswapV3
     protected adapters = Adapters[network] || {},
     readonly quoterIface = new Interface(UniswapV3QuoterV2ABI),
     protected config = UniswapV3Config[dexKey][network],
-    protected poolsToPreload = PoolsToPreload[dexKey]?.[network] || [],
     protected subgraphType:
       | 'subgraphs'
       | 'deployments'
@@ -204,15 +206,14 @@ export class UniswapV3
 
     // This is only for testing, because cold pool fetching is goes out of
     // FETCH_POOL_INDENTIFIER_TIMEOUT range
-    await Promise.all(
-      this.poolsToPreload.map(async pool =>
-        Promise.all(
-          this.config.supportedFees.map(async fee =>
-            this.getPool(pool.token0, pool.token1, fee, blockNumber),
-          ),
+    const pools = this.dexHelper.preloadPools.get(this.dexKey);
+    if (pools) {
+      await Promise.all(
+        pools.map(async pool =>
+          this.getPool(pool.token0, pool.token1, pool.fee, blockNumber),
         ),
-      ),
-    );
+      );
+    }
 
     if (!this.dexHelper.config.isSlave) {
       const cleanExpiredNotExistingPoolsKeys = async () => {
@@ -268,6 +269,45 @@ export class UniswapV3
         );
       }
     };
+  }
+
+  async getPoolByAddress(
+    poolAddress: Address,
+    blockNumber: number,
+  ): Promise<UniswapV3EventPool | null> {
+    const poolIdentifier = this.addressToIdentifier[poolAddress];
+    if (!poolIdentifier) {
+      const [token0, token1, fee] =
+        await this.dexHelper.multiWrapper.tryAggregate<Address | bigint>(true, [
+          {
+            target: poolAddress,
+            callData: new Interface(UniswapV3PoolABI).encodeFunctionData(
+              'token0',
+            ),
+            decodeFunction: addressDecode,
+          },
+          {
+            target: poolAddress,
+            callData: new Interface(UniswapV3PoolABI).encodeFunctionData(
+              'token1',
+            ),
+            decodeFunction: addressDecode,
+          },
+          {
+            target: poolAddress,
+            callData: new Interface(UniswapV3PoolABI).encodeFunctionData('fee'),
+            decodeFunction: uint256ToBigInt,
+          },
+        ]);
+
+      return this.getPool(
+        token0.returnData as string,
+        token1.returnData as string,
+        fee.returnData as bigint,
+        blockNumber,
+      );
+    }
+    return this.eventPools[poolIdentifier];
   }
 
   async getPool(
@@ -388,9 +428,16 @@ export class UniswapV3
       }
     }
 
-    this.eventPools[
-      this.getPoolIdentifier(srcAddress, destAddress, fee, tickSpacing)
-    ] = pool;
+    const poolIdentifier = this.getPoolIdentifier(
+      srcAddress,
+      destAddress,
+      fee,
+      tickSpacing,
+    );
+    this.eventPools[poolIdentifier] = pool;
+    if (pool) {
+      this.addressToIdentifier[pool.poolAddress] = poolIdentifier;
+    }
     return pool;
   }
 
@@ -1614,5 +1661,53 @@ export class UniswapV3
       clearInterval(this.intervalTask);
       this.intervalTask = undefined;
     }
+  }
+
+  async getPoolInfo(address: Address) {
+    const [token0, token1, fee] =
+      await this.dexHelper.multiWrapper.tryAggregate<Address | bigint>(true, [
+        {
+          target: address,
+          callData: new Interface(UniswapV3PoolABI).encodeFunctionData(
+            'token0',
+          ),
+          decodeFunction: addressDecode,
+        },
+        {
+          target: address,
+          callData: new Interface(UniswapV3PoolABI).encodeFunctionData(
+            'token1',
+          ),
+          decodeFunction: addressDecode,
+        },
+        {
+          target: address,
+          callData: new Interface(UniswapV3PoolABI).encodeFunctionData('fee'),
+          decodeFunction: uint256ToBigInt,
+        },
+      ]);
+
+    const [token0Decimals, token1Decimals] =
+      await this.dexHelper.multiWrapper.tryAggregate<bigint>(true, [
+        {
+          target: token0.returnData as Address,
+          callData: new Interface(ERC20ABI).encodeFunctionData('decimals'),
+          decodeFunction: uint256ToBigInt,
+        },
+        {
+          target: token0.returnData as Address,
+          callData: new Interface(ERC20ABI).encodeFunctionData('decimals'),
+          decodeFunction: uint256ToBigInt,
+        },
+      ]);
+
+    return {
+      address,
+      token0: token0.returnData as Address,
+      token0Decimals: token0Decimals.returnData,
+      token1: token1.returnData as Address,
+      token1Decimals: token1Decimals.returnData,
+      fee: fee.returnData,
+    };
   }
 }

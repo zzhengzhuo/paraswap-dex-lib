@@ -200,7 +200,7 @@ async function checkPoolStateForBlockRange(
 ): Promise<boolean> {
   const network = Network.ARBITRUM;
   const dexKey = 'CamelotV3';
-  const dexHelper = new DummyDexHelper(network);
+  const dexHelper = new DummyDexHelper(network, startBlockNumber);
 
   const algebra = new Algebra(network, dexKey, dexHelper);
   const pool = await algebra.getPool(

@@ -10,6 +10,7 @@ import {
   TICK_BITMAP_TO_USE,
   TICK_BITMAP_TO_USE_BY_CHAIN,
 } from '../constants';
+import { NumberAsString } from '@paraswap/core';
 
 function isWordPosOut(
   wordPos: bigint,

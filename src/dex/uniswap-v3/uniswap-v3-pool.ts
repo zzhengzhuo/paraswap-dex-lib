@@ -3,7 +3,7 @@ import { Contract } from 'web3-eth-contract';
 import { Interface } from '@ethersproject/abi';
 import { ethers } from 'ethers';
 import { assert, DeepReadonly } from 'ts-essentials';
-import { Log, Logger, BlockHeader, Address } from '../../types';
+import { Log, Logger, BlockHeader, Address, NumberAsString } from '../../types';
 import {
   InitializeStateOptions,
   StatefulEventSubscriber,
@@ -341,7 +341,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
     const startTickBitmap = TickBitMap.position(currentTick / tickSpacing)[0];
     const requestedRange = this.getBitmapRangeToRequest();
 
-    return {
+    const poolState: PoolState = {
       networkId: this.dexHelper.config.data.network,
       pool: _state.pool,
       blockTimestamp: bigIntify(_state.blockTimestamp),
@@ -372,6 +372,36 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       balance0,
       balance1,
     };
+
+    const liquidities = new Map<
+      NumberAsString,
+      { liquidityGross: bigint; liquidityNet: bigint }
+    >();
+    for (const tick of Object.keys(poolState.ticks)) {
+      liquidities.set(tick, {
+        liquidityGross: poolState.ticks[tick].liquidityGross,
+        liquidityNet: poolState.ticks[tick].liquidityNet,
+      });
+    }
+
+    this.dexHelper.callBack(
+      bigIntify(_state.blockTimestamp),
+      _state.pool,
+      '',
+      new Map(),
+      poolState.balance0,
+      poolState.balance1,
+      poolState.slot0.tick,
+      poolState.slot0.sqrtPriceX96,
+      poolState.liquidity,
+      poolState.tickSpacing,
+      poolState.startTickBitmap,
+      poolState.tickBitmap,
+      poolState.networkId,
+      liquidities,
+    );
+
+    return poolState;
   }
 
   handleSwapEvent(
@@ -403,6 +433,10 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
         newTick,
         newLiquidity,
         zeroForOne,
+        log.transactionHash,
+        amount0,
+        amount1,
+        this.dexHelper.callBack,
       );
 
       if (zeroForOne) {
