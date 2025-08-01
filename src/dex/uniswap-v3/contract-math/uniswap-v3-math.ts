@@ -576,6 +576,58 @@ class UniswapV3Math {
       }
     }
 
+    if (tradingVolumes.size === 0) {
+      const [tickNext] = TickBitMap.nextInitializedTickWithinOneWord(
+        poolState,
+        state.tick,
+        poolState.tickSpacing,
+        zeroForOne,
+        false,
+      );
+      const lowerTick =
+        (state.tick / poolState.tickSpacing) * poolState.tickSpacing;
+      let amount0: bigint;
+      let amount1: bigint;
+      if (zeroForOne) {
+        amount0 = amountIn > 0n ? amountIn : -amountIn;
+        amount1 = amountOut > 0n ? amountOut : -amountOut;
+      } else {
+        amount0 = amountOut > 0n ? amountOut : -amountOut;
+        amount1 = amountIn > 0n ? amountIn : -amountIn;
+      }
+      if (tickNext > lowerTick) {
+        const tickLen = (tickNext - lowerTick) / poolState.tickSpacing;
+        amount0 = amount0 / tickLen;
+        amount1 = amount1 / tickLen;
+        for (
+          let tick = lowerTick;
+          tick < tickNext;
+          tick += poolState.tickSpacing
+        ) {
+          const oldVolume = tradingVolumes.get(tick.toString());
+          tradingVolumes.set(tick.toString(), {
+            amount0: (oldVolume?.amount0 ?? 0n) + amount0,
+            amount1: (oldVolume?.amount1 ?? 0n) + amount1,
+          });
+        }
+      } else {
+        const tickLen = (lowerTick - tickNext) / poolState.tickSpacing + 1n;
+        amount0 = amount0 / tickLen;
+        amount1 = amount1 / tickLen;
+        for (
+          let tick = lowerTick;
+          tick >= tickNext;
+          tick -= poolState.tickSpacing
+        ) {
+          const oldVolume = tradingVolumes.get(tick.toString());
+          tradingVolumes.set(tick.toString(), {
+            amount0: (oldVolume?.amount0 ?? 0n) + amount0,
+            amount1: (oldVolume?.amount1 ?? 0n) + amount1,
+          });
+        }
+      }
+    }
+
     if (slot0Start.tick !== newTick) {
       const [observationIndex, observationCardinality] = Oracle.write(
         poolState,
@@ -609,28 +661,6 @@ class UniswapV3Math {
         liquidityGross: poolState.ticks[tick].liquidityGross,
         liquidityNet: poolState.ticks[tick].liquidityNet,
       });
-    }
-
-    if (tradingVolumes.size === 0) {
-      const [tickNext] = TickBitMap.nextInitializedTickWithinOneWord(
-        poolState,
-        state.tick,
-        poolState.tickSpacing,
-        zeroForOne,
-        false,
-      );
-
-      if (zeroForOne) {
-        tradingVolumes.set(tickNext.toString(), {
-          amount0: amountIn > 0n ? amountIn : -amountIn,
-          amount1: amountOut > 0n ? amountOut : -amountOut,
-        });
-      } else {
-        tradingVolumes.set(tickNext.toString(), {
-          amount0: amountOut > 0n ? amountOut : -amountOut,
-          amount1: amountIn > 0n ? amountIn : -amountIn,
-        });
-      }
     }
 
     callBack(
