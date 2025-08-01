@@ -480,6 +480,64 @@ class UniswapV3Math {
 
       state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
 
+      const lowerTick =
+        (state.tick / poolState.tickSpacing) * poolState.tickSpacing;
+
+      let newVolume: {
+        amount0: bigint;
+        amount1: bigint;
+      };
+      if (zeroForOne) {
+        newVolume = {
+          amount0:
+            swapStepResult.amountIn > 0n
+              ? swapStepResult.amountIn
+              : -swapStepResult.amountIn,
+          amount1: 0n,
+        };
+      } else {
+        newVolume = {
+          amount0: 0n,
+          amount1:
+            swapStepResult.amountOut > 0n
+              ? swapStepResult.amountIn
+              : -swapStepResult.amountIn,
+        };
+      }
+
+      if (step.tickNext > lowerTick) {
+        const tickLen = (step.tickNext - lowerTick) / poolState.tickSpacing;
+        const amount0 = newVolume.amount0 / tickLen;
+        const amount1 = newVolume.amount1 / tickLen;
+        for (
+          let tick = lowerTick;
+          tick < step.tickNext;
+          tick += poolState.tickSpacing
+        ) {
+          const oldVolume = tradingVolumes.get(tick.toString());
+          tradingVolumes.set(tick.toString(), {
+            amount0: (oldVolume?.amount0 ?? 0n) + amount0,
+            amount1: (oldVolume?.amount1 ?? 0n) + amount1,
+          });
+        }
+      } else {
+        const tickLen =
+          (lowerTick - step.tickNext) / poolState.tickSpacing + 1n;
+        const amount0 = newVolume.amount0 / tickLen;
+        const amount1 = newVolume.amount1 / tickLen;
+        for (
+          let tick = lowerTick;
+          tick >= step.tickNext;
+          tick -= poolState.tickSpacing
+        ) {
+          const oldVolume = tradingVolumes.get(tick.toString());
+          tradingVolumes.set(tick.toString(), {
+            amount0: (oldVolume?.amount0 ?? 0n) + amount0,
+            amount1: (oldVolume?.amount1 ?? 0n) + amount1,
+          });
+        }
+      }
+
       if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
         if (step.initialized) {
           if (!cache.computedLatestObservation) {
@@ -515,36 +573,6 @@ class UniswapV3Math {
         state.tick = zeroForOne ? step.tickNext - 1n : step.tickNext;
       } else if (state.sqrtPriceX96 != step.sqrtPriceStartX96) {
         state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
-      }
-
-      if (zeroForOne) {
-        const oldVolume = tradingVolumes.get(step.tickNext.toString());
-        tradingVolumes.set(step.tickNext.toString(), {
-          amount0:
-            (oldVolume?.amount0 ?? 0n) +
-            (swapStepResult.amountIn > 0n
-              ? swapStepResult.amountIn
-              : -swapStepResult.amountIn),
-          amount1:
-            (oldVolume?.amount1 ?? 0n) +
-            (swapStepResult.amountOut > 0n
-              ? swapStepResult.amountOut
-              : -swapStepResult.amountOut),
-        });
-      } else {
-        const oldVolume = tradingVolumes.get(step.tickNext.toString());
-        tradingVolumes.set(step.tickNext.toString(), {
-          amount0:
-            (oldVolume?.amount0 ?? 0n) +
-            (swapStepResult.amountOut > 0n
-              ? swapStepResult.amountOut
-              : -swapStepResult.amountOut),
-          amount1:
-            (oldVolume?.amount1 ?? 0n) +
-            (swapStepResult.amountIn > 0n
-              ? swapStepResult.amountIn
-              : -swapStepResult.amountIn),
-        });
       }
     }
 
