@@ -434,6 +434,8 @@ class UniswapV3Math {
       }
     > = new Map();
 
+    let amountInRemaining = amountIn > 0n ? amountIn : -amountIn;
+
     while (state.tick !== newTick && state.sqrtPriceX96 !== newSqrtPriceX96) {
       const step = {
         sqrtPriceStartX96: 0n,
@@ -479,9 +481,12 @@ class UniswapV3Math {
       );
 
       state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
+      amountInRemaining -=
+        swapStepResult.amountIn > 0n
+          ? swapStepResult.amountIn
+          : -swapStepResult.amountIn;
 
-      const lowerTick =
-        (state.tick / poolState.tickSpacing) * poolState.tickSpacing;
+      const lowerTick = this.getLowerTick(state.tick, poolState.tickSpacing);
 
       let newVolume: {
         amount0: bigint;
@@ -576,7 +581,7 @@ class UniswapV3Math {
       }
     }
 
-    if (tradingVolumes.size === 0) {
+    if (amountInRemaining > 0n) {
       const [tickNext] = TickBitMap.nextInitializedTickWithinOneWord(
         poolState,
         state.tick,
@@ -584,16 +589,15 @@ class UniswapV3Math {
         zeroForOne,
         false,
       );
-      const lowerTick =
-        (state.tick / poolState.tickSpacing) * poolState.tickSpacing;
+      const lowerTick = this.getLowerTick(state.tick, poolState.tickSpacing);
       let amount0: bigint;
       let amount1: bigint;
       if (zeroForOne) {
-        amount0 = amountIn > 0n ? amountIn : -amountIn;
-        amount1 = amountOut > 0n ? amountOut : -amountOut;
+        amount0 = amountInRemaining;
+        amount1 = 0n;
       } else {
-        amount0 = amountOut > 0n ? amountOut : -amountOut;
-        amount1 = amountIn > 0n ? amountIn : -amountIn;
+        amount0 = 0n;
+        amount1 = amountInRemaining;
       }
       if (tickNext > lowerTick) {
         const tickLen = (tickNext - lowerTick) / poolState.tickSpacing;
@@ -781,7 +785,7 @@ class UniswapV3Math {
       }
 
       step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
-      const lowerTick = (state.tick / tickSpacing) * tickSpacing;
+      const lowerTick = this.getLowerTick(state.tick, tickSpacing);
       const holderAmountKey = (
         step.tickNext < lowerTick ? step.tickNext : lowerTick
       ).toString();
@@ -908,6 +912,20 @@ class UniswapV3Math {
       }
     }
     return [amount0, amount1];
+  }
+
+  getLowerTick(tick: bigint, tickSpacing: bigint): bigint {
+    if (tick === 0n) {
+      return 0n;
+    }
+
+    if (tick > 0n) {
+      return (tick / tickSpacing) * tickSpacing;
+    } else {
+      return (
+        BigInt(Math.floor(Number(tick) / Number(tickSpacing))) * tickSpacing
+      );
+    }
   }
 
   private _isTickToProcess(state: PoolState, tick: bigint): boolean {
