@@ -85,6 +85,20 @@ class DummyCache implements ICache {
     network: number,
     cacheKey: string,
   ): Promise<number> {
+    const key = `${network}_${dexKey}_${cacheKey}`.toLowerCase();
+    delete this.storage[key];
+    return 0;
+  }
+
+  async delWithTTL(
+    dexKey: string,
+    network: number,
+    cacheKey: string,
+    ttlSeconds: number,
+  ): Promise<number> {
+    const key = `${network}_${dexKey}_${cacheKey}`.toLowerCase();
+    await new Promise(resolve => setTimeout(resolve, ttlSeconds * 1000));
+    delete this.storage[key];
     return 0;
   }
 
@@ -95,7 +109,9 @@ class DummyCache implements ICache {
     ttlSeconds: number,
     value: string,
   ): Promise<void> {
-    this.storage[`${network}_${dexKey}_${cacheKey}`.toLowerCase()] = value;
+    const key = `${network}_${dexKey}_${cacheKey}`.toLowerCase();
+    this.storage[key] = value;
+    this.delWithTTL(dexKey, network, cacheKey, ttlSeconds);
     return;
   }
 
