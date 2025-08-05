@@ -582,14 +582,8 @@ class UniswapV3Math {
     }
 
     if (amountInRemaining > 0n) {
-      const [tickNext] = TickBitMap.nextInitializedTickWithinOneWord(
-        poolState,
-        state.tick,
-        poolState.tickSpacing,
-        zeroForOne,
-        false,
-      );
       const lowerTick = this.getLowerTick(state.tick, poolState.tickSpacing);
+      const tickNext = this.getLowerTick(newTick, poolState.tickSpacing);
       let amount0: bigint;
       let amount1: bigint;
       if (zeroForOne) {
