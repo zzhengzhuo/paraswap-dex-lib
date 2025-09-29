@@ -64,6 +64,7 @@ export class VelodromeSlipstream extends UniswapV3 {
             pool.token1,
             pool.feeOrTickSpacing,
             blockNumber,
+            pool.feeOrTickSpacing,
           ),
         ),
       );
