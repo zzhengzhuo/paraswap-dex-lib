@@ -394,6 +394,7 @@ class UniswapV3Math {
     txHash: string,
     amountIn: bigint,
     amountOut: bigint,
+    dexKey: string,
     callBack: CallBack,
   ): void {
     const slot0Start = poolState.slot0;
@@ -663,6 +664,7 @@ class UniswapV3Math {
 
     callBack(
       poolState.blockTimestamp,
+      dexKey,
       poolState.pool,
       txHash,
       tradingVolumes,

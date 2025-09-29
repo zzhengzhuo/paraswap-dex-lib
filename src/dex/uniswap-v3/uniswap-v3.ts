@@ -465,6 +465,7 @@ export class UniswapV3
       this.logger,
       this.cacheStateKey,
       this.config.initHash,
+      this.dexKey,
       tickSpacing,
     );
   }

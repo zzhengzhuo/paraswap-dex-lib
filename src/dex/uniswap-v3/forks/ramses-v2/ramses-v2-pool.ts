@@ -33,6 +33,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
     logger: Logger,
     mapKey: string = '',
     readonly poolInitCodeHash: string,
+    readonly dexKey: string,
   ) {
     super(
       dexHelper,
@@ -47,6 +48,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
       logger,
       mapKey,
       poolInitCodeHash,
+      dexKey,
     );
 
     this.handlers['FeeAdjustment'] = this.handleFeeAdjustmentEvent.bind(this);

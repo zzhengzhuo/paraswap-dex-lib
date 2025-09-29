@@ -171,6 +171,7 @@ export class VelodromeSlipstreamEventPool extends UniswapV3EventPool {
 
     this.dexHelper.callBack(
       bigIntify(_state.blockTimestamp),
+      this.dexKey,
       _state.pool,
       '',
       new Map(),

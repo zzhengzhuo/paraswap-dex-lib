@@ -37,6 +37,7 @@ export class PangolinV3EventPool extends UniswapV3EventPool {
     logger: Logger,
     mapKey: string = '',
     readonly poolInitCodeHash: string,
+    readonly dexKey: string,
     public readonly tickSpacing?: bigint,
   ) {
     super(
@@ -51,6 +52,7 @@ export class PangolinV3EventPool extends UniswapV3EventPool {
       token1,
       logger,
       mapKey,
+      dexKey,
       poolInitCodeHash,
     );
 

@@ -75,6 +75,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
     logger: Logger,
     mapKey: string = '',
     readonly poolInitCodeHash: string,
+    readonly dexKey: string,
     public readonly tickSpacing?: bigint,
   ) {
     let poolKey = `${token0}_${token1}_${feeCode}`;
@@ -386,6 +387,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
 
     this.dexHelper.callBack(
       bigIntify(_state.blockTimestamp),
+      this.dexKey,
       _state.pool,
       '',
       new Map(),
@@ -436,6 +438,7 @@ export class UniswapV3EventPool extends StatefulEventSubscriber<PoolState> {
         log.transactionHash,
         amount0,
         amount1,
+        this.dexKey,
         this.dexHelper.callBack,
       );
 

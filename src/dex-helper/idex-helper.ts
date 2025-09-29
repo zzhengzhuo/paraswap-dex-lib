@@ -14,6 +14,7 @@ import { Address } from '@paraswap/sdk';
 
 export type CallBack = (
   blockTimestamp: bigint,
+  dexId: string,
   poolAddress: Address,
   txHash: string,
   tradingVolumes: Map<
