@@ -210,7 +210,12 @@ export class UniswapV3
     if (pools) {
       await Promise.all(
         pools.map(async pool =>
-          this.getPool(pool.token0, pool.token1, pool.fee, blockNumber),
+          this.getPool(
+            pool.token0,
+            pool.token1,
+            pool.feeOrTickSpacing,
+            blockNumber,
+          ),
         ),
       );
     }

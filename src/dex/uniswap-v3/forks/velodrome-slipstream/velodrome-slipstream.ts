@@ -55,6 +55,20 @@ export class VelodromeSlipstream extends UniswapV3 {
     // Init listening to new pools creation
     await this.factory.initialize(blockNumber);
 
+    const pools = this.dexHelper.preloadPools.get(this.dexKey);
+    if (pools) {
+      await Promise.all(
+        pools.map(async pool =>
+          this.getPool(
+            pool.token0,
+            pool.token1,
+            pool.feeOrTickSpacing,
+            blockNumber,
+          ),
+        ),
+      );
+    }
+
     if (!this.dexHelper.config.isSlave) {
       const cleanExpiredNotExistingPoolsKeys = async () => {
         const maxTimestamp =

@@ -474,7 +474,7 @@ export class DummyDexHelper implements IDexHelper {
     readonly blockCallback: BlockCallback = () => {},
     readonly preloadPools: Map<
       string,
-      { token0: Address; token1: Address; fee: bigint }[]
+      { token0: Address; token1: Address; feeOrTickSpacing: bigint }[]
     > = new Map(),
   ) {
     this.config = new ConfigHelper(

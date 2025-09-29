@@ -77,7 +77,7 @@ export class LocalParaswapSDK implements IParaSwapSDK {
     blockCallback: BlockCallback,
     preloadPools: Map<
       string,
-      { token0: Address; token1: Address; fee: bigint }[]
+      { token0: Address; token1: Address; feeOrTickSpacing: bigint }[]
     >,
     limitOrderProvider?: DummyLimitOrderProvider,
   ) {
