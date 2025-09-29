@@ -1671,7 +1671,7 @@ export class UniswapV3
   }
 
   async getPoolInfo(address: Address) {
-    const [token0, token1, fee] =
+    const [token0, token1, fee, tickSpacing] =
       await this.dexHelper.multiWrapper.tryAggregate<Address | bigint>(true, [
         {
           target: address,
@@ -1690,6 +1690,13 @@ export class UniswapV3
         {
           target: address,
           callData: new Interface(UniswapV3PoolABI).encodeFunctionData('fee'),
+          decodeFunction: uint256ToBigInt,
+        },
+        {
+          target: address,
+          callData: new Interface(UniswapV3PoolABI).encodeFunctionData(
+            'tickSpacing',
+          ),
           decodeFunction: uint256ToBigInt,
         },
       ]);
@@ -1715,6 +1722,7 @@ export class UniswapV3
       token1: token1.returnData as Address,
       token1Decimals: token1Decimals.returnData,
       fee: fee.returnData,
+      tickSpacing: tickSpacing.returnData,
     };
   }
 }
