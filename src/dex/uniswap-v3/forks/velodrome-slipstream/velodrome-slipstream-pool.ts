@@ -9,7 +9,7 @@ import {
 } from '../../types';
 import { uint24ToBigInt, uint256ToBigInt } from '../../../../lib/decoders';
 import { decodeStateMultiCallResultWithRelativeBitmaps } from './utils';
-import { Address, Logger } from '../../../../types';
+import { Address, Logger, NumberAsString } from '../../../../types';
 import { assert } from 'ts-essentials';
 import { _reduceTickBitmap, _reduceTicks } from '../../contract-math/utils';
 import { bigIntify } from '../../../../utils';
@@ -126,7 +126,7 @@ export class VelodromeSlipstreamEventPool extends UniswapV3EventPool {
     const startTickBitmap = TickBitMap.position(currentTick / tickSpacing)[0];
     const requestedRange = this.getBitmapRangeToRequest();
 
-    return {
+    const poolState: PoolState = {
       networkId: this.dexHelper.config.data.network,
       pool: _state.pool,
       fee,
@@ -157,6 +157,36 @@ export class VelodromeSlipstreamEventPool extends UniswapV3EventPool {
       balance0,
       balance1,
     };
+
+    const liquidities = new Map<
+      NumberAsString,
+      { liquidityGross: bigint; liquidityNet: bigint }
+    >();
+    for (const tick of Object.keys(poolState.ticks)) {
+      liquidities.set(tick, {
+        liquidityGross: poolState.ticks[tick].liquidityGross,
+        liquidityNet: poolState.ticks[tick].liquidityNet,
+      });
+    }
+
+    this.dexHelper.callBack(
+      bigIntify(_state.blockTimestamp),
+      _state.pool,
+      '',
+      new Map(),
+      poolState.balance0,
+      poolState.balance1,
+      poolState.slot0.tick,
+      poolState.slot0.sqrtPriceX96,
+      poolState.liquidity,
+      poolState.tickSpacing,
+      poolState.startTickBitmap,
+      poolState.tickBitmap,
+      poolState.networkId,
+      liquidities,
+    );
+
+    return poolState;
   }
 
   private predictDeterministicAddress(
