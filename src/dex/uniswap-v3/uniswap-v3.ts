@@ -213,8 +213,9 @@ export class UniswapV3
           this.getPool(
             pool.token0,
             pool.token1,
-            pool.feeOrTickSpacing,
+            pool.fee,
             blockNumber,
+            pool.tickSpacing,
           ),
         ),
       );

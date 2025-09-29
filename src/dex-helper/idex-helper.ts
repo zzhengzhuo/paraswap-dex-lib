@@ -52,7 +52,7 @@ export interface IDexHelper {
   blockManager: IBlockManager;
   preloadPools: Map<
     string,
-    { token0: Address; token1: Address; feeOrTickSpacing: bigint }[]
+    { token0: Address; token1: Address; fee: bigint; tickSpacing: bigint }[]
   >;
   callBack: CallBack;
   getLogger: LoggerConstructor;
